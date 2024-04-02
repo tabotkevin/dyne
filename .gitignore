@@ -1,0 +1,22 @@
+# python generated files
+__pycache__/
+tests/__pycache__
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# venv
+.venv
+
+.vscode/
+.cache
+.idea
+.python-version
+.coverage
+.pytest_cache
+.DS_Store
+coverage.xml
+
+
