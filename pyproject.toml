@@ -21,8 +21,8 @@ dependencies = [
     "requests-toolbelt>=1.0.0",
     "graphene>=3.3",
     "itsdangerous>=2.1.2",
-    "apistar>=0.7.2",
     "graphql-server>=3.0.0b7",
+    "marshmallow>=3.21.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
