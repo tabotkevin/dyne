@@ -1,20 +1,19 @@
 import asyncio
+import inspect
 import json
 import re
-import inspect
 import traceback
 from collections import defaultdict
 
-from starlette.middleware.wsgi import WSGIMiddleware
-from starlette.websockets import WebSocket, WebSocketClose
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
+from starlette.middleware.wsgi import WSGIMiddleware
+from starlette.websockets import WebSocket, WebSocketClose
 
-from .models import Request, Response
 from . import status_codes
 from .formats import get_formats
+from .models import Request, Response
 from .statics import DEFAULT_SESSION_COOKIE
-
 
 _CONVERTORS = {
     "int": (int, r"\d+"),
@@ -59,11 +58,12 @@ class BaseRoute:
 
 
 class Route(BaseRoute):
-    def __init__(self, route, endpoint, *, before_request=False):
+    def __init__(self, route, endpoint, *, before_request=False, methods=("GET",)):
         assert route.startswith("/"), "Route path must start with '/'"
         self.route = route
         self.endpoint = endpoint
         self.before_request = before_request
+        self.methods = methods
 
         self.path_re, self.param_convertors = compile_path(route)
 
@@ -126,6 +126,8 @@ class Route(BaseRoute):
                 if on_request is None:
                     raise HTTPException(status_code=status_codes.HTTP_405)
         else:
+            if request.method not in [method.lower() for method in self.methods]:
+                raise HTTPException(status_code=status_codes.HTTP_405) from None
             views.append(self.endpoint)
 
         for view in views:
@@ -228,11 +230,13 @@ class Router:
         websocket=False,
         before_request=False,
         check_existing=False,
+        methods=("GET",),
     ):
         """Adds a route to the router.
         :param route: A string representation of the route
         :param endpoint: The endpoint for the route -- can be callable, or class.
         :param default: If ``True``, all unknown requests will route to this view.
+        :param methods: A list of supported request methods for this endpoint. e.g ["GET", "POST"].
         """
         if before_request:
             if websocket:
@@ -252,7 +256,7 @@ class Router:
         if websocket:
             route = WebSocketRoute(route, endpoint)
         else:
-            route = Route(route, endpoint)
+            route = Route(route, endpoint, methods=methods)
 
         self.routes.append(route)
 
