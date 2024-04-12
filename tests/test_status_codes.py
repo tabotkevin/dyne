@@ -1,5 +1,6 @@
 import pytest
-from responder import status_codes
+
+from dune import status_codes
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from apispec import APISpec, yaml_utils
@@ -59,7 +58,6 @@ class Schema:
 
     @property
     def _apispec(self):
-
         info = {}
         if self.description is not None:
             info["description"] = self.description

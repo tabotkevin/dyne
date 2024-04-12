@@ -24,7 +24,7 @@ copyright = "2018, A Kenneth Reitz project"
 author = "Kenneth Reitz"
 
 # The short X.Y version
-import os
+import os  # noqa: E402
 
 # Path hackery to get current version number.
 here = os.path.abspath(os.path.dirname(__file__))

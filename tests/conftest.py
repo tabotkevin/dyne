@@ -1,9 +1,9 @@
-import graphene
-import responder
 from pathlib import Path
+
+import graphene
 import pytest
-import multiprocessing
-import concurrent.futures
+
+import dune
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def current_dir():
 
 @pytest.fixture
 def api():
-    return responder.API(debug=False, allowed_hosts=[";"])
+    return dune.API(debug=False, allowed_hosts=[";"])
 
 
 @pytest.fixture

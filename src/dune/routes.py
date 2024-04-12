@@ -1,6 +1,5 @@
 import asyncio
 import inspect
-import json
 import re
 import traceback
 from collections import defaultdict
@@ -13,7 +12,6 @@ from starlette.websockets import WebSocket, WebSocketClose
 from . import status_codes
 from .formats import get_formats
 from .models import Request, Response
-from .statics import DEFAULT_SESSION_COOKIE
 
 _CONVERTORS = {
     "int": (int, r"\d+"),
