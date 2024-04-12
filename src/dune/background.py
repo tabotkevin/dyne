@@ -1,8 +1,8 @@
 import asyncio
-import functools
 import concurrent.futures
 import multiprocessing
 import traceback
+
 from starlette.concurrency import run_in_threadpool
 
 
@@ -27,7 +27,7 @@ class BackgroundQueue:
         def on_future_done(fs):
             try:
                 fs.result()
-            except:
+            except Exception as e:  # noqa: F841
                 traceback.print_exc()
 
         def do_task(*args, **kwargs):

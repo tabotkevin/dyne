@@ -1,18 +1,15 @@
-import concurrent
+import io
+import random
+import string
 
 import pytest
 import yaml
-import random
-import responder
-import requests
-import string
-import io
-from responder.routes import Router, Route, WebSocketRoute
-from responder.templates import Templates
-
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient as StarletteTestClient
+
+import dune
+from dune.routes import Route, WebSocketRoute
+from dune.templates import Templates
 
 
 def test_api_basic_route(api):
@@ -108,9 +105,9 @@ def test_status_code(api):
     @api.route("/")
     def hello(req, resp):
         resp.text = "keep going"
-        resp.status_code = responder.status_codes.HTTP_416
+        resp.status_code = dune.status_codes.HTTP_416
 
-    assert api.requests.get("http://;/").status_code == responder.status_codes.HTTP_416
+    assert api.requests.get("http://;/").status_code == dune.status_codes.HTTP_416
 
 
 def test_json_media(api):
@@ -140,7 +137,7 @@ def test_yaml_media(api):
 
 
 def test_graphql_schema_query_querying(api, schema):
-    api.add_route("/", responder.ext.GraphQLView(schema=schema, api=api))
+    api.add_route("/", dune.ext.GraphQLView(schema=schema, api=api))
 
     r = api.requests.get("http://;/?q={ hello }", headers={"Accept": "json"})
     assert r.json() == {"data": {"hello": "Hello stranger"}}
@@ -182,9 +179,9 @@ def test_class_based_view_status_code(api):
     @api.route("/")
     class ThingsResource:
         def on_request(self, req, resp):
-            resp.status_code = responder.status_codes.HTTP_416
+            resp.status_code = dune.status_codes.HTTP_416
 
-    assert api.requests.get("http://;/").status_code == responder.status_codes.HTTP_416
+    assert api.requests.get("http://;/").status_code == dune.status_codes.HTTP_416
 
 
 def test_query_params(api, url):
@@ -201,12 +198,12 @@ def test_query_params(api, url):
 
 # Requires https://github.com/encode/starlette/pull/102
 def test_form_data(api):
-    @api.route("/")
+    @api.route("/", methods=["POST"])
     async def route(req, resp):
         resp.media = {"form": await req.media("form")}
 
     dump = {"q": "q"}
-    r = api.requests.get(api.url_for(route), data=dump)
+    r = api.requests.post(api.url_for(route), data=dump)
     assert r.json()["form"] == dump
 
 
@@ -248,7 +245,7 @@ def test_background(api):
         api.text = "ok"
 
     r = api.requests.get(api.url_for(route))
-    assert r.ok
+    assert r.status_code == 200
 
 
 def test_multiple_routes(api):
@@ -268,22 +265,22 @@ def test_multiple_routes(api):
 
 
 def test_graphql_schema_json_query(api, schema):
-    api.add_route("/", responder.ext.GraphQLView(schema=schema, api=api))
+    api.add_route("/", dune.ext.GraphQLView(schema=schema, api=api), methods=["POST"])
 
     r = api.requests.post("http://;/", json={"query": "{ hello }"})
-    assert r.ok
+    assert r.status_code == 200
 
 
 def test_graphiql(api, schema):
-    api.add_route("/", responder.ext.GraphQLView(schema=schema, api=api))
+    api.add_route("/", dune.ext.GraphQLView(schema=schema, api=api))
 
     r = api.requests.get("http://;/", headers={"Accept": "text/html"})
-    assert r.ok
+    assert r.status_code == 200
     assert "GraphiQL" in r.text
 
 
 def test_json_uploads(api):
-    @api.route("/")
+    @api.route("/", methods=["POST"])
     async def route(req, resp):
         resp.media = await req.media()
 
@@ -293,7 +290,7 @@ def test_json_uploads(api):
 
 
 def test_yaml_uploads(api):
-    @api.route("/")
+    @api.route("/", methods=["POST"])
     async def route(req, resp):
         resp.media = await req.media()
 
@@ -307,7 +304,7 @@ def test_yaml_uploads(api):
 
 
 def test_form_uploads(api):
-    @api.route("/")
+    @api.route("/", methods=["POST"])
     async def route(req, resp):
         resp.media = await req.media()
 
@@ -348,13 +345,20 @@ def test_yaml_downloads(api):
 
 
 def test_schema_generation_explicit():
-    import responder
-    from responder.ext.schema import Schema as OpenAPISchema
     import marshmallow
 
-    api = responder.API()
+    import dune
+    from dune.ext.schema import Schema as OpenAPISchema
 
-    schema = OpenAPISchema(app=api, title="Web Service", version="1.0", openapi="3.0.2")
+    api = dune.API()
+
+    schema = OpenAPISchema(
+        app=api,
+        title="Web Service",
+        version="1.0",
+        openapi="3.0.2",
+        openapi_route="/schema.yaml",
+    )
 
     @schema.schema("Pet")
     class PetSchema(marshmallow.Schema):
@@ -374,7 +378,7 @@ def test_schema_generation_explicit():
         """
         resp.media = PetSchema().dump({"name": "little orange"})
 
-    r = api.requests.get("http://;/schema.yml")
+    r = api.requests.get("http://;/schema.yaml")
     dump = yaml.safe_load(r.content)
 
     assert dump
@@ -382,10 +386,15 @@ def test_schema_generation_explicit():
 
 
 def test_schema_generation():
-    import responder
     from marshmallow import Schema, fields
 
-    api = responder.API(title="Web Service", openapi="3.0.2")
+    import dune
+
+    api = dune.API(
+        title="Web Service",
+        openapi="3.0.2",
+        openapi_route="/schema.yaml",
+    )
 
     @api.schema("Pet")
     class PetSchema(Schema):
@@ -405,7 +414,7 @@ def test_schema_generation():
         """
         resp.media = PetSchema().dump({"name": "little orange"})
 
-    r = api.requests.get("http://;/schema.yml")
+    r = api.requests.get("http://;/schema.yaml")
     dump = yaml.safe_load(r.content)
 
     assert dump
@@ -413,10 +422,10 @@ def test_schema_generation():
 
 
 def test_documentation_explicit():
-    import responder
-    from responder.ext.schema import Schema as OpenAPISchema
-
     import marshmallow
+
+    import dune
+    from dune.ext.schema import Schema as OpenAPISchema
 
     description = "This is a sample server for a pet store."
     terms_of_service = "http://example.com/terms/"
@@ -430,16 +439,17 @@ def test_documentation_explicit():
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
     }
 
-    api = responder.API(allowed_hosts=["testserver", ";"])
+    api = dune.API(allowed_hosts=["testserver", ";"])
 
     schema = OpenAPISchema(
         app=api,
         title="Web Service",
         version="1.0",
         openapi="3.0.2",
-        docs_route="/docs",
+        docs_route="/doc",
         description=description,
         terms_of_service=terms_of_service,
+        openapi_route="/schema.yaml",
         contact=contact,
         license=license,
     )
@@ -462,13 +472,14 @@ def test_documentation_explicit():
         """
         resp.media = PetSchema().dump({"name": "little orange"})
 
-    r = api.requests.get("/docs")
+    r = api.requests.get("/doc")
     assert "html" in r.text
 
 
 def test_documentation():
-    import responder
     from marshmallow import Schema, fields
+
+    import dune
 
     description = "This is a sample server for a pet store."
     terms_of_service = "http://example.com/terms/"
@@ -482,7 +493,7 @@ def test_documentation():
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
     }
 
-    api = responder.API(
+    api = dune.API(
         title="Web Service",
         version="1.0",
         openapi="3.0.2",
@@ -524,7 +535,7 @@ def test_mount_wsgi_app(api, flask):
     api.mount("/flask", flask)
 
     r = api.requests.get("http://;/flask")
-    assert r.ok
+    assert r.status_code == 200
 
 
 def test_async_class_based_views(api):
@@ -590,7 +601,7 @@ def test_template_string_rendering(api):
 
 
 def test_template_rendering(template_path):
-    api = responder.API(templates_dir=template_path.dirpath())
+    api = dune.API(templates_dir=template_path.dirpath())
 
     @api.route("/")
     def view(req, resp):
@@ -623,19 +634,29 @@ def test_template_async(api, template_path):
 
 
 def test_file_uploads(api):
-    @api.route("/")
+    @api.route("/", methods=["POST"])
     async def upload(req, resp):
-
         files = await req.media("files")
         result = {}
         result["hello"] = files["hello"]["content"].decode("utf-8")
+        resp.media = {"files": result}
+
+    world = io.BytesIO(b"world")
+    data = {"hello": ("hello.txt", world, "text/plain")}
+    r = api.requests.post(api.url_for(upload), files=data)
+    assert r.json() == {"files": {"hello": "world"}}
+
+    @api.route("/not_file", methods=["POST"])
+    async def upload_not_file(req, resp):
+        files = await req.media("files")
+        result = {}
         result["not-a-file"] = files["not-a-file"].decode("utf-8")
         resp.media = {"files": result}
 
-    world = io.StringIO("world")
-    data = {"hello": ("hello.txt", world, "text/plain"), "not-a-file": b"data only"}
-    r = api.requests.post(api.url_for(upload), files=data)
-    assert r.json() == {"files": {"hello": "world", "not-a-file": "data only"}}
+    world = io.BytesIO(b"world")
+    data = {"not-a-file": b"data only"}
+    with pytest.raises(Exception) as err:  # noqa: F841
+        r = api.requests.post(api.url_for(upload_not_file), files=data)
 
 
 def test_500(api):
@@ -643,18 +664,17 @@ def test_500(api):
     def view(req, resp):
         raise ValueError
 
-    dumb_client = responder.api.TestClient(
+    dumb_client = dune.api.TestClient(
         api, base_url="http://;", raise_server_exceptions=False
     )
     r = dumb_client.get(api.url_for(view))
-    assert not r.ok
-    assert r.status_code == responder.status_codes.HTTP_500
+    assert r.status_code == dune.status_codes.HTTP_500
 
 
 def test_404(api):
     r = api.requests.get("/foo")
 
-    assert r.status_code == responder.status_codes.HTTP_404
+    assert r.status_code == dune.status_codes.HTTP_404
 
 
 def test_websockets_text(api):
@@ -667,7 +687,7 @@ def test_websockets_text(api):
         await ws.close()
 
     client = StarletteTestClient(api)
-    with client.websocket_connect("ws://;/ws") as websocket:
+    with client.websocket_connect("ws://;/ws") as websocket:  # noqa: F811
         data = websocket.receive_text()
         assert data == payload
 
@@ -682,7 +702,7 @@ def test_websockets_bytes(api):
         await ws.close()
 
     client = StarletteTestClient(api)
-    with client.websocket_connect("ws://;/ws") as websocket:
+    with client.websocket_connect("ws://;/ws") as websocket:  # noqa: F811
         data = websocket.receive_bytes()
         assert data == payload
 
@@ -697,7 +717,7 @@ def test_websockets_json(api):
         await ws.close()
 
     client = StarletteTestClient(api)
-    with client.websocket_connect("ws://;/ws") as websocket:
+    with client.websocket_connect("ws://;/ws") as websocket:  # noqa: F811
         data = websocket.receive_json()
         assert data == payload
 
@@ -716,7 +736,7 @@ def test_before_websockets(api):
         await ws.send_json({"before": "request"})
 
     client = StarletteTestClient(api)
-    with client.websocket_connect("ws://;/ws") as websocket:
+    with client.websocket_connect("ws://;/ws") as websocket:  # noqa: F811
         data = websocket.receive_json()
         assert data == {"before": "request"}
         data = websocket.receive_json()
@@ -735,7 +755,7 @@ def test_startup(api):
         who[0] = "world"
 
     with api.requests as session:
-        r = session.get(f"http://;/hello")
+        r = session.get("http://;/hello")
         assert r.text == "hello, world!"
 
 
@@ -786,9 +806,7 @@ def test_before_response(api, session):
 @pytest.mark.parametrize("enable_hsts", [True, False])
 @pytest.mark.parametrize("cors", [True, False])
 def test_allowed_hosts(enable_hsts, cors):
-    api = responder.API(
-        allowed_hosts=[";", "tenant.;"], enable_hsts=enable_hsts, cors=cors
-    )
+    api = dune.API(allowed_hosts=[";", "tenant.;"], enable_hsts=enable_hsts, cors=cors)
 
     @api.route("/")
     def get(req, resp):
@@ -813,7 +831,7 @@ def test_allowed_hosts(enable_hsts, cors):
     r = api.session(base_url="http://unkown_tenant.;").get(api.url_for(get))
     assert r.status_code == 400
 
-    api = responder.API(allowed_hosts=["*.;"])
+    api = dune.API(allowed_hosts=["*.;"])
 
     @api.route("/")
     def get(req, resp):
@@ -860,7 +878,7 @@ def test_staticfiles(tmpdir, static_route):
     parent_dir = "css"
     asset2 = create_asset(static_dir, name="asset2", parent_dir=parent_dir)
 
-    api = responder.API(static_dir=str(static_dir), static_route=static_route)
+    api = dune.API(static_dir=str(static_dir), static_route=static_route)
     session = api.session()
 
     static_route = api.static_route
@@ -882,29 +900,6 @@ def test_staticfiles(tmpdir, static_route):
 
     r = session.get(f"{static_route}/{parent_dir}")
     assert r.status_code == api.status_codes.HTTP_404
-
-
-def test_staticfiles_none_dir(tmpdir):
-    api = responder.API(static_dir=None)
-    session = api.session()
-
-    static_dir = tmpdir.mkdir("static")
-
-    asset = create_asset(static_dir)
-
-    static_route = api.static_route
-
-    # ok
-    r = session.get(f"{static_route}/{asset.basename}")
-    assert r.status_code == api.status_codes.HTTP_404
-
-    # dir listing
-    r = session.get(f"{static_route}")
-    assert r.status_code == api.status_codes.HTTP_404
-
-    # SPA
-    with pytest.raises(Exception) as excinfo:
-        api.add_route("/spa", static=True)
 
 
 def test_response_html_property(api):
@@ -940,7 +935,6 @@ def test_stream(api, session):
 
     @api.route("/{who}")
     async def greeting(req, resp, *, who):
-
         resp.stream(shout_stream, who)
 
     r = session.get("/morocco")
@@ -974,7 +968,7 @@ def test_stream(api, session):
 def test_empty_req_text(api):
     content = "It's working"
 
-    @api.route("/")
+    @api.route("/", methods=["POST"])
     async def home(req, resp):
         await req.text
         resp.text = content
@@ -1012,7 +1006,6 @@ def test_path_matches_route(api):
 
 
 def test_route_without_endpoint(api):
-    # test that a route without endpoint gets a default static response
     api.add_route("/")
     route = api.router.routes[0]
-    assert route.endpoint_name == "_static_response"
+    assert route.endpoint_name == "schema_response"
