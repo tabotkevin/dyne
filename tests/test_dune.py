@@ -4,6 +4,8 @@ import string
 
 import pytest
 import yaml
+from marshmallow import Schema, fields
+from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.testclient import TestClient as StarletteTestClient
 
@@ -297,7 +299,7 @@ def test_yaml_uploads(api):
     dump = {"complicated": "times"}
     r = api.requests.post(
         api.url_for(route),
-        data=yaml.dump(dump),
+        content=yaml.dump(dump),
         headers={"Content-Type": "application/x-yaml"},
     )
     assert r.json() == dump
@@ -545,13 +547,13 @@ def test_async_class_based_views(api):
             resp.text = await req.text
 
     data = "frame"
-    r = api.requests.post(api.url_for(Resource), data=data)
+    r = api.requests.post(api.url_for(Resource), content=data)
     assert r.text == data
 
 
 def test_cookies(api):
     @api.route("/")
-    def cookies(req, resp):
+    def home(req, resp):
         resp.media = {"cookies": req.cookies}
         resp.cookies["sent"] = "true"
         resp.set_cookie(
@@ -564,12 +566,14 @@ def test_cookies(api):
             httponly=True,
         )
 
-    r = api.requests.get(api.url_for(cookies), cookies={"hello": "universe"})
+    client = api.requests
+    client.cookies = {"hello": "universe"}
+    r = client.get(api.url_for(home))
     assert r.json() == {"cookies": {"hello": "universe"}}
     assert "sent" in r.cookies
     assert "hello" in r.cookies
 
-    r = api.requests.get(api.url_for(cookies))
+    r = api.requests.get(api.url_for(home))
     assert r.json() == {"cookies": {"hello": "world", "sent": "true"}}
 
 
@@ -1009,3 +1013,171 @@ def test_route_without_endpoint(api):
     api.add_route("/")
     route = api.router.routes[0]
     assert route.endpoint_name == "schema_response"
+
+
+def test_pydantic_input_request_validation(api):
+    class ItemSchema(BaseModel):
+        name: str
+
+    class CookiesSchema(BaseModel):
+        max_age: int
+        is_cheap: bool
+
+    @api.route("/create", methods=["POST"])
+    @api.input(ItemSchema)
+    async def create_item(req, resp, *, data):
+        resp.text = "created"
+
+        assert data == {"name": "Test Item"}
+
+    # Cookies routes
+    @api.route("/")
+    @api.input(CookiesSchema, location="cookies")
+    async def home_cookies(req, resp, *, cookies):
+        resp.text = "Welcome"
+
+        assert cookies == {"max_age": 123, "is_cheap": True}
+
+    # Valid media
+    data = {"name": "Test Item"}
+    # resp_mock.media.return_value = data
+    response = api.requests.post(api.url_for(create_item), json=data)
+    assert response.status_code == api.status_codes.HTTP_200
+    assert response.text == "created"
+
+    # Valid  cookies
+    client = api.requests
+    client.cookies = {"max_age": "123", "is_cheap": "True"}
+    response = client.get(api.url_for(home_cookies))
+    assert response.status_code == api.status_codes.HTTP_200
+    assert response.text == "Welcome"
+
+    # Invalid Pydantic data
+    data = {"name": [123]}  # Invalid data
+    response = api.requests.post(api.url_for(create_item), json=data)
+    assert response.status_code == api.status_codes.HTTP_400
+    assert "error" in response.text
+
+
+def test_marshmallow_input_request_validation(api):
+    class ItemSchema(Schema):
+        name = fields.Str()
+
+    class QuerySchema(Schema):
+        page = fields.Int(missing=1)
+        limit = fields.Int(missing=10)
+
+    class HeaderSchema(Schema):
+        x_version = fields.String(data_key="X-Version", required=True)
+
+    @api.route("/create", methods=["POST"])
+    @api.input(ItemSchema)
+    async def create_item(req, resp, *, data):
+        resp.text = "created"
+
+        assert data == {"name": "Test Item"}
+
+    # Query(params) route
+    @api.route("/items")
+    @api.input(QuerySchema, location="query")
+    async def get_items(req, resp, *, query):
+        assert query == {"page": 2, "limit": 20}
+
+        resp.media = {"items": [{"name": "Scooter"}]}
+
+    # Headers routes
+    @api.route("/item/{id}", methods=["POST"])
+    @api.input(HeaderSchema, location="headers")
+    async def item(req, resp, *, id, headers):
+        """Header Pydantic"""
+        assert headers == {"x_version": "2.4.5"}
+
+        resp.media = {"name": "Samsung Galaxy"}
+
+    # Valid data
+    data = {"name": "Test Item"}
+    response = api.requests.post(api.url_for(create_item), json=data)
+    assert response.status_code == api.status_codes.HTTP_200
+    assert response.text == "created"
+
+    # Valid params(query)
+    response = api.requests.get(api.url_for(get_items), params={"page": 2, "limit": 20})
+    assert response.status_code == api.status_codes.HTTP_200
+    assert response.json() == {"items": [{"name": "Scooter"}]}
+
+    # Valid headers
+    response = api.requests.post(
+        api.url_for(item, id=1), headers={"X-Version": "2.4.5"}
+    )
+    assert response.status_code == api.status_codes.HTTP_200
+    assert response.json() == {"name": "Samsung Galaxy"}
+
+    # Invalid data
+    data = {"name": [123]}  # Invalid data
+    response = api.requests.post(api.url_for(create_item), json=data)
+    assert response.status_code == api.status_codes.HTTP_400
+    assert "error" in response.text
+
+
+def test_endpoint_request_methods(api):
+    @api.route("/{greeting}")
+    async def greet(req, resp, *, greeting):  # defaults to get.
+        resp.text = f"{greeting}, world!"
+
+    @api.route("/me/{greeting}", methods=["POST"])
+    async def greet_me(req, resp, *, greeting):
+        resp.text = f"POST - {greeting}, world!"
+
+    @api.route("/no/{greeting}")
+    class NoGreeting:
+        pass
+
+    @api.route("/person/{greeting}")
+    class GreetingResource:
+        def on_get(self, req, resp, *, greeting):
+            resp.text = f"GET person - {greeting}, world!"
+            resp.headers.update({"X-Life": "41"})
+            resp.status_code = api.status_codes.HTTP_201
+
+        def on_post(self, req, resp, *, greeting):
+            resp.text = f"POST person - {greeting}, world!"
+            resp.headers.update({"X-Life": "42"})
+
+        def on_request(self, req, resp, *, greeting):  # any request method.
+            resp.text = f"any person - {greeting}, world!"
+            resp.headers.update({"X-Life": "43"})
+
+    resp = api.requests.get("http://;/Hello")
+    assert resp.status_code == api.status_codes.HTTP_200
+    assert resp.text == "Hello, world!"
+
+    resp = api.requests.post("http://;/Hello")
+    assert resp.status_code == api.status_codes.HTTP_405
+
+    resp = api.requests.get("http://;/me/Hey")
+    assert resp.status_code == api.status_codes.HTTP_405
+
+    resp = api.requests.post("http://;/me/Hey")
+    assert resp.status_code == api.status_codes.HTTP_200
+    assert resp.text == "POST - Hey, world!"
+
+    resp = api.requests.get("http://;/no/Hello")
+    assert resp.status_code == api.status_codes.HTTP_405
+
+    resp = api.requests.post("http://;/no/Hello")
+    assert resp.status_code == api.status_codes.HTTP_405
+
+    resp = api.requests.get("http://;/person/Hi")
+    assert resp.text == "GET person - Hi, world!"
+    assert resp.headers["X-Life"] == "41"
+    assert resp.status_code == api.status_codes.HTTP_201
+
+    resp = api.requests.post("http://;/person/Hi")
+    assert resp.text == "POST person - Hi, world!"
+    assert resp.headers["X-Life"] == "42"
+    assert resp.status_code == api.status_codes.HTTP_200
+
+    resp = api.requests.put("http://;/person/Hi")
+    assert resp.text == "any person - Hi, world!"
+    assert resp.headers["X-Life"] == "43"
+    assert resp.status_code == api.status_codes.HTTP_200

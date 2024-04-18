@@ -12,6 +12,8 @@ aiofiles==23.2.1
     # via dune
 aniso8601==9.0.1
     # via graphene
+annotated-types==0.6.0
+    # via pydantic
 anyio==4.3.0
     # via starlette
     # via watchfiles
@@ -63,6 +65,10 @@ marshmallow==3.21.1
 packaging==24.0
     # via apispec
     # via marshmallow
+pydantic==2.7.0
+    # via dune
+pydantic-core==2.18.1
+    # via pydantic
 python-dotenv==1.0.1
     # via uvicorn
 python-multipart==0.0.9
@@ -83,6 +89,8 @@ starlette==0.37.2
     # via dune
 typing-extensions==4.10.0
     # via graphql-server
+    # via pydantic
+    # via pydantic-core
 urllib3==2.2.1
     # via requests
 uvicorn==0.29.0
