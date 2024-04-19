@@ -1,22 +1,21 @@
 import functools
 import inspect
-from urllib.parse import parse_qs
 from http.cookies import SimpleCookie
+from urllib.parse import parse_qs
 
 import chardet
+import marshmallow as ma
+import pydantic as pd
 import rfc3986
-
-from requests.structures import CaseInsensitiveDict
 from requests.cookies import RequestsCookieJar
+from requests.structures import CaseInsensitiveDict
+from starlette.requests import Request as StarletteRequest
+from starlette.requests import State
+from starlette.responses import Response as StarletteResponse
+from starlette.responses import StreamingResponse as StarletteStreamingResponse
 
-from starlette.requests import Request as StarletteRequest, State
-from starlette.responses import (
-    Response as StarletteResponse,
-    StreamingResponse as StarletteStreamingResponse,
-)
-
-from .status_codes import HTTP_301
 from .statics import DEFAULT_ENCODING
+from .status_codes import HTTP_301
 
 
 class QueryDict(dict):
@@ -86,6 +85,17 @@ class QueryDict(dict):
         """
         yield from super().items()
 
+    def normalize(self):
+        """
+        By default, a `QueryDict` returns a dictionary where each key maps to a list of values.
+        For example, `{"key": ["value1", "value2"]}`.
+
+        The function `normalize` flattens this dictionary so that each key maps to a single value.
+        For example, {"key": "value1"}. This is useful when you want to simplify the representation
+        of query parameters that may have multiple values.
+        """
+        return {k: v[0] if isinstance(v, list) else v for k, v in super().items()}
+
 
 class Request:
     __slots__ = [
@@ -95,6 +105,7 @@ class Request:
         "_encoding",
         "api",
         "_content",
+        "_data",
         "_cookies",
     ]
 
@@ -104,6 +115,7 @@ class Request:
         self._encoding = None
         self.api = api
         self._content = None
+        self._data = None
 
         headers = CaseInsensitiveDict()
         for key, value in self._starlette.headers.items():
@@ -239,6 +251,49 @@ class Request:
             return await self.formats[format](self)
         else:
             return await format(self)
+
+    async def validate(self, schema, location="media", unknown=None):
+        """Validates data from a specified request location against a
+           Marshmallow or Pydantic schemas.
+
+        :param model: Marshmallow or Pydantic schemas.
+        :param location: headers, params or media
+        :param unknown: A value to pass for ``unknown`` when calling the
+           marshmallow schema's ``load`` method. Defaults to ``marshmallow.EXCLUDE`` for headers and cookies.
+        """
+
+        data = (
+            self.headers
+            if location == "headers"
+            else (
+                self.cookies
+                if location == "cookies"
+                else (
+                    self.params.normalize()
+                    if location in ["params", "query"]
+                    else await self.media()
+                )
+            )
+        )
+
+        if not unknown and location in ["headers", "cookies"]:
+            unknown = ma.EXCLUDE
+
+        try:
+            if issubclass(schema, ma.Schema):  # marshmallow.
+                self._data = schema().load(data, unknown=unknown)
+            elif issubclass(schema, pd.BaseModel):  # pydantic.
+                self._data = schema(**data).model_dump()
+            else:
+                self._data = dict(errors=f"Unsupported schema type {schema.__name__}")
+        except (ma.ValidationError, pd.ValidationError) as e:
+            self._data = {
+                "errors": (
+                    e.errors() if isinstance(e, pd.ValidationError) else e.messages
+                )
+            }
+
+        return self._data
 
 
 def content_setter(mimetype):

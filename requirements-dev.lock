@@ -14,6 +14,8 @@ alabaster==0.7.16
     # via sphinx
 aniso8601==9.0.1
     # via graphene
+annotated-types==0.6.0
+    # via pydantic
 anyio==4.3.0
     # via httpx
     # via starlette
@@ -101,6 +103,10 @@ platformdirs==4.2.0
 pluggy==1.4.0
     # via pytest
 pre-commit==3.7.0
+pydantic==2.7.0
+    # via dune
+pydantic-core==2.18.1
+    # via pydantic
 pygments==2.17.2
     # via sphinx
 pytest==8.1.1
@@ -148,6 +154,8 @@ starlette==0.37.2
     # via dune
 typing-extensions==4.10.0
     # via graphql-server
+    # via pydantic
+    # via pydantic-core
 urllib3==2.2.1
     # via requests
 uvicorn==0.29.0

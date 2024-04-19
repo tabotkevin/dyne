@@ -1,4 +1,5 @@
 import os
+from functools import wraps
 from pathlib import Path
 
 import uvicorn
@@ -324,6 +325,76 @@ class API:
         :param **kwargs: Data to pass into the template.
         """
         return self.templates.render_string(source, *args, **kwargs)
+
+    def _parse_request(self, schema, location, key=None, unknown=None):
+        """A decorator for parsing and validating input schema from a specified request location.
+        Supports both Pydantic and Marshmallow.
+
+        :param schema: Marshmallow or Pydantic model.
+        :param location: values must be one of `cookies, headers, media, params or query`.
+        :param key: The unique key to use for fetching data from the request (e.g., 'q', 'headers', 'data').
+        :param unknown: A value to pass for ``unknown`` when calling the
+           marshmallow schema's ``load`` method.
+        """
+
+        if not key:
+            key = location
+            if location == "media":
+                key = "data"
+
+        def decorator(f):
+            @wraps(f)
+            async def wrapper(req, resp, *args, **kwargs):
+                data = await req.validate(schema, location=location, unknown=unknown)
+                if "errors" in data:
+                    resp.status_code = 400
+                    resp.media = data
+                    return
+
+                return await f(req, resp, *args, **kwargs, **{key: data})
+
+            return wrapper
+
+        return decorator
+
+    def input(self, schema, location="media", key=None, unknown=None):
+        """A decorator for validating data from a specified request location against a
+           Marshmallow or Pydantic schemas.
+
+        :param schema: Marshmallow or Pydantic schemas.
+        :param location: media(json, form, yaml), cookies, headers, params or query.
+        :param key: The unique key to use for fetching data from the request (e.g., 'q', 'headers', 'data').
+        :param unknown: A value to pass for ``unknown`` when calling the
+           marshmallow schema's ``load`` method. Defaults to ``marshmallow.EXCLUDE`` for headers and cookies.
+
+           Pydantic and Marshmallow schemas.
+
+        Usage::
+            import time
+            from pydantic import BaseModel
+            import responder
+
+            class Item(BaseModel)
+                price: float
+                title: str
+
+            api = responder.API()
+
+            @api.route("/create")
+            @api.input(Item)
+            def create_item(req, resp, *, data):
+                @api.background.task
+                def process_item(item):
+                    time.sleep(1)
+                    print(item)   # e.g {"price": 9.99, "title": "Pydantic book"}
+
+                process_item(data)
+                resp.media = {"msg": "created"}
+
+            r = api.requests.post("http://;/create", json={"price": 9.99, "title": "Pydantic book"})
+        """
+
+        return self._parse_request(schema, location=location, key=key, unknown=unknown)
 
     def serve(self, *, address=None, port=None, **options):
         """Runs the application with uvicorn. If the ``PORT`` environment
