@@ -452,26 +452,27 @@ class API:
         def decorator(f):
             @wraps(f)
             async def wrapper(req, resp, *args, **kwargs):
-                rv = await f(req, resp, *args, **kwargs)
+                await f(req, resp, *args, **kwargs)
+                obj = resp.obj
 
-                if isinstance(rv, Response):
-                    raise TypeError("@output cannot handle Response objects.")
+                if obj is None:
+                    raise TypeError("You must set `resp.obj` when using @output")
 
-                if isinstance(rv, (DeclarativeBase, Query, list)):
+                if isinstance(obj, (DeclarativeBase, Query, list)):
                     if hasattr(schema, "from_orm"):
                         resp.media = (
-                            [schema.from_orm(obj).model_dump() for obj in rv]
-                            if isinstance(rv, (Query, list))
-                            else schema.from_orm(rv).model_dump()
+                            [schema.from_orm(o).model_dump() for o in obj]
+                            if isinstance(obj, (Query, list))
+                            else schema.from_orm(obj).model_dump()
                         )
                     else:
                         resp.media = (
-                            schema(many=True).dump(rv)
-                            if isinstance(rv, (Query, list))
-                            else schema().dump(rv)
+                            schema(many=True).dump(obj)
+                            if isinstance(obj, (Query, list))
+                            else schema().dump(obj)
                         )
-                elif isinstance(rv, dict):
-                    resp.media = rv
+                elif isinstance(obj, dict):
+                    resp.media = obj
                 else:
                     raise TypeError("Return type is not serializable")
 

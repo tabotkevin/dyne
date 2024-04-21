@@ -64,7 +64,7 @@ async def create(req, resp, *, data):
     session.add(book)
     session.commit()
 
-    return book
+    resp.obj = book
 
 
 @api.route("/all", methods=["POST"])
@@ -72,7 +72,7 @@ async def create(req, resp, *, data):
 async def all_books(req, resp):
     """Get all books"""
 
-    return session.query(Book)
+    resp.obj = session.query(Book)
 
 
 r = api.requests.post(

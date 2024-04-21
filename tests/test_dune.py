@@ -1231,14 +1231,14 @@ def test_pydantic_response_schema_serialization(api):
         session.add(book)
         session.commit()
 
-        return book
+        resp.obj = book
 
     @api.route("/all")
     @api.output(BookOut)
     async def all_books(req, resp):
         """Get all books"""
 
-        return session.query(Book)
+        resp.obj = session.query(Book)
 
     data = {"title": "Learning Responder", "price": 39.99}
     response = api.requests.post(api.url_for(create_book), json=data)
@@ -1301,14 +1301,14 @@ def test_marshmallow_response_schema_serialization(api):
         session.add(book)
         session.commit()
 
-        return book
+        resp.obj = book
 
     @api.route("/all")
     @api.output(BookSchema)
     async def all_books(req, resp):
         """Get all books"""
 
-        return session.query(Book)
+        resp.obj = session.query(Book)
 
     data = {"title": "Python Programming", "price": 11.99}
     response = api.requests.post(api.url_for(create_book), json=data)
