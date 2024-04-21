@@ -12,9 +12,9 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.testclient import TestClient as StarletteTestClient
 
-import dune
-from dune.routes import Route, WebSocketRoute
-from dune.templates import Templates
+import dyne
+from dyne.routes import Route, WebSocketRoute
+from dyne.templates import Templates
 
 
 def test_api_basic_route(api):
@@ -110,9 +110,9 @@ def test_status_code(api):
     @api.route("/")
     def hello(req, resp):
         resp.text = "keep going"
-        resp.status_code = dune.status_codes.HTTP_416
+        resp.status_code = dyne.status_codes.HTTP_416
 
-    assert api.requests.get("http://;/").status_code == dune.status_codes.HTTP_416
+    assert api.requests.get("http://;/").status_code == dyne.status_codes.HTTP_416
 
 
 def test_json_media(api):
@@ -142,7 +142,7 @@ def test_yaml_media(api):
 
 
 def test_graphql_schema_query_querying(api, schema):
-    api.add_route("/", dune.ext.GraphQLView(schema=schema, api=api))
+    api.add_route("/", dyne.ext.GraphQLView(schema=schema, api=api))
 
     r = api.requests.get("http://;/?q={ hello }", headers={"Accept": "json"})
     assert r.json() == {"data": {"hello": "Hello stranger"}}
@@ -184,9 +184,9 @@ def test_class_based_view_status_code(api):
     @api.route("/")
     class ThingsResource:
         def on_request(self, req, resp):
-            resp.status_code = dune.status_codes.HTTP_416
+            resp.status_code = dyne.status_codes.HTTP_416
 
-    assert api.requests.get("http://;/").status_code == dune.status_codes.HTTP_416
+    assert api.requests.get("http://;/").status_code == dyne.status_codes.HTTP_416
 
 
 def test_query_params(api, url):
@@ -270,14 +270,14 @@ def test_multiple_routes(api):
 
 
 def test_graphql_schema_json_query(api, schema):
-    api.add_route("/", dune.ext.GraphQLView(schema=schema, api=api), methods=["POST"])
+    api.add_route("/", dyne.ext.GraphQLView(schema=schema, api=api), methods=["POST"])
 
     r = api.requests.post("http://;/", json={"query": "{ hello }"})
     assert r.status_code == 200
 
 
 def test_graphiql(api, schema):
-    api.add_route("/", dune.ext.GraphQLView(schema=schema, api=api))
+    api.add_route("/", dyne.ext.GraphQLView(schema=schema, api=api))
 
     r = api.requests.get("http://;/", headers={"Accept": "text/html"})
     assert r.status_code == 200
@@ -352,10 +352,10 @@ def test_yaml_downloads(api):
 def test_schema_generation_explicit():
     import marshmallow
 
-    import dune
-    from dune.ext.schema import Schema as OpenAPISchema
+    import dyne
+    from dyne.ext.schema import Schema as OpenAPISchema
 
-    api = dune.API()
+    api = dyne.API()
 
     schema = OpenAPISchema(
         app=api,
@@ -393,9 +393,9 @@ def test_schema_generation_explicit():
 def test_schema_generation():
     from marshmallow import Schema, fields
 
-    import dune
+    import dyne
 
-    api = dune.API(
+    api = dyne.API(
         title="Web Service",
         openapi="3.0.2",
         openapi_route="/schema.yaml",
@@ -429,8 +429,8 @@ def test_schema_generation():
 def test_documentation_explicit():
     import marshmallow
 
-    import dune
-    from dune.ext.schema import Schema as OpenAPISchema
+    import dyne
+    from dyne.ext.schema import Schema as OpenAPISchema
 
     description = "This is a sample server for a pet store."
     terms_of_service = "http://example.com/terms/"
@@ -444,7 +444,7 @@ def test_documentation_explicit():
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
     }
 
-    api = dune.API(allowed_hosts=["testserver", ";"])
+    api = dyne.API(allowed_hosts=["testserver", ";"])
 
     schema = OpenAPISchema(
         app=api,
@@ -484,7 +484,7 @@ def test_documentation_explicit():
 def test_documentation():
     from marshmallow import Schema, fields
 
-    import dune
+    import dyne
 
     description = "This is a sample server for a pet store."
     terms_of_service = "http://example.com/terms/"
@@ -498,7 +498,7 @@ def test_documentation():
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
     }
 
-    api = dune.API(
+    api = dyne.API(
         title="Web Service",
         version="1.0",
         openapi="3.0.2",
@@ -608,7 +608,7 @@ def test_template_string_rendering(api):
 
 
 def test_template_rendering(template_path):
-    api = dune.API(templates_dir=template_path.dirpath())
+    api = dyne.API(templates_dir=template_path.dirpath())
 
     @api.route("/")
     def view(req, resp):
@@ -671,17 +671,17 @@ def test_500(api):
     def view(req, resp):
         raise ValueError
 
-    dumb_client = dune.api.TestClient(
+    dumb_client = dyne.api.TestClient(
         api, base_url="http://;", raise_server_exceptions=False
     )
     r = dumb_client.get(api.url_for(view))
-    assert r.status_code == dune.status_codes.HTTP_500
+    assert r.status_code == dyne.status_codes.HTTP_500
 
 
 def test_404(api):
     r = api.requests.get("/foo")
 
-    assert r.status_code == dune.status_codes.HTTP_404
+    assert r.status_code == dyne.status_codes.HTTP_404
 
 
 def test_websockets_text(api):
@@ -813,7 +813,7 @@ def test_before_response(api, session):
 @pytest.mark.parametrize("enable_hsts", [True, False])
 @pytest.mark.parametrize("cors", [True, False])
 def test_allowed_hosts(enable_hsts, cors):
-    api = dune.API(allowed_hosts=[";", "tenant.;"], enable_hsts=enable_hsts, cors=cors)
+    api = dyne.API(allowed_hosts=[";", "tenant.;"], enable_hsts=enable_hsts, cors=cors)
 
     @api.route("/")
     def get(req, resp):
@@ -838,7 +838,7 @@ def test_allowed_hosts(enable_hsts, cors):
     r = api.session(base_url="http://unkown_tenant.;").get(api.url_for(get))
     assert r.status_code == 400
 
-    api = dune.API(allowed_hosts=["*.;"])
+    api = dyne.API(allowed_hosts=["*.;"])
 
     @api.route("/")
     def get(req, resp):
@@ -885,7 +885,7 @@ def test_staticfiles(tmpdir, static_route):
     parent_dir = "css"
     asset2 = create_asset(static_dir, name="asset2", parent_dir=parent_dir)
 
-    api = dune.API(static_dir=str(static_dir), static_route=static_route)
+    api = dyne.API(static_dir=str(static_dir), static_route=static_route)
     session = api.session()
 
     static_route = api.static_route

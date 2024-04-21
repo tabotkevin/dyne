@@ -3,9 +3,9 @@ from pathlib import Path
 from apispec import APISpec, yaml_utils
 from apispec.ext.marshmallow import MarshmallowPlugin
 
-from dune import status_codes
-from dune.statics import DEFAULT_OPENAPI_THEME, OPENAPI_THEMES
-from dune.templates import Templates
+from dyne import status_codes
+from dyne.statics import DEFAULT_OPENAPI_THEME, OPENAPI_THEMES
+from dyne.templates import Templates
 
 
 class Schema:

@@ -3,7 +3,7 @@ from pathlib import Path
 import graphene
 import pytest
 
-import dune
+import dyne
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def current_dir():
 
 @pytest.fixture
 def api():
-    return dune.API(debug=False, allowed_hosts=[";"])
+    return dyne.API(debug=False, allowed_hosts=[";"])
 
 
 @pytest.fixture
