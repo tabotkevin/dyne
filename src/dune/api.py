@@ -408,7 +408,7 @@ class API:
 
             from pydantic import BaseModel
             from sqlalchemy import Column, Integer, String
-            import responder
+            import dune
 
             from .models import Item
 
@@ -426,14 +426,14 @@ class API:
                 class Config:
                     from_attributes = True
 
-            api = responder.API()
+            api = dune.API()
 
             @api.route("/all")
             @api.output(ItemCreate)
             async def all_items(req, resp):
                 "Get all items"
 
-            return session.query(Item)
+            resp.obj = session.query(Item)
 
 
             @api.route("/create")
@@ -446,7 +446,7 @@ class API:
                 session.add(item)
                 session.commit()
 
-                return item
+                resp.obj = item
         """
 
         def decorator(f):
