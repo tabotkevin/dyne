@@ -6,8 +6,7 @@
 [![image](https://img.shields.io/pypi/pyversions/responder.svg)](https://pypi.org/project/responder/)
 [![image](https://img.shields.io/github/contributors/kennethreitz/responder.svg)](https://github.com/kennethreitz/responder/graphs/contributors)
 
-
-``` python
+```python
 
 import dune
 
@@ -42,7 +41,6 @@ for more details on features available in Responder.
 Install the stable release:
 
     $ pip install dune
-    ✨🍰✨
 
 # The Basic Idea
 
