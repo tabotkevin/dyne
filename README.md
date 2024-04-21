@@ -1,4 +1,4 @@
-# Responder: a familiar HTTP Service Framework for Python
+## A light weight Python async framework with batteries included.
 
 [![Documentation Status](https://readthedocs.org/projects/mybinder/badge/?version=latest)](https://responder.kennethreitz.org/en/latest/)
 [![image](https://img.shields.io/pypi/v/responder.svg)](https://pypi.org/project/responder/)
@@ -34,15 +34,15 @@ serving up requests with gzip compression automatically.
 
 See
 [the documentation's feature tour](https://responder.readthedocs.io/en/latest/tour.html)
-for more details on features available in Responder.
+for more details on features available in Dune.
 
-# Installing Responder
+## Installing Dune
 
 Install the stable release:
 
     $ pip install dune
 
-# The Basic Idea
+## The Basic Idea
 
 The primary concept here is to bring the niceties that are brought forth from both Flask
 and Falcon and unify them into a single framework, along with some new ideas I have. I
@@ -69,7 +69,7 @@ Requests.
 - **A built in testing client that uses the actual Requests you know and love**.
 - The ability to mount other WSGI apps easily.
 - Automatic gzipped-responses.
-- In addition to Falcon's `on_get`, `on_post`, etc methods, Responder features an
+- In addition to Falcon's `on_get`, `on_post`, etc methods, Dune features an
   `on_request` method, which gets called on every type of request, much like Requests.
 - A production static file server is built-in.
 - Uvicorn built-in as a production web server. I would have chosen Gunicorn, but it
