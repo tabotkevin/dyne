@@ -8,11 +8,13 @@ import dune
 api = dune.API()
 
 
+@api.schema("BookSchema")
 class BookSchema(BaseModel):  # Pydantic schema
     price: float
     title: str
 
 
+@api.schema("HeaderSchema")
 class HeaderSchema(Schema):  # Mashmellow schema
     x_version = fields.String(data_key="X-Version", required=True)
 
