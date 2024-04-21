@@ -85,12 +85,15 @@ rfc3986==2.0.0
     # via dune
 sniffio==1.3.1
     # via anyio
+sqlalchemy==2.0.29
+    # via dune
 starlette==0.37.2
     # via dune
 typing-extensions==4.10.0
     # via graphql-server
     # via pydantic
     # via pydantic-core
+    # via sqlalchemy
 urllib3==2.2.1
     # via requests
 uvicorn==0.29.0

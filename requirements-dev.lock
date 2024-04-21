@@ -150,12 +150,15 @@ sphinxcontrib-qthelp==1.0.7
     # via sphinx
 sphinxcontrib-serializinghtml==1.1.10
     # via sphinx
+sqlalchemy==2.0.29
+    # via dune
 starlette==0.37.2
     # via dune
 typing-extensions==4.10.0
     # via graphql-server
     # via pydantic
     # via pydantic-core
+    # via sqlalchemy
 urllib3==2.2.1
     # via requests
 uvicorn==0.29.0

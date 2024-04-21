@@ -3,6 +3,7 @@ from functools import wraps
 from pathlib import Path
 
 import uvicorn
+from sqlalchemy.orm import DeclarativeBase, Query
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
@@ -11,6 +12,8 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.testclient import TestClient
+
+from dune.models import Response
 
 from . import status_codes
 from .background import BackgroundQueue
@@ -395,6 +398,94 @@ class API:
         """
 
         return self._parse_request(schema, location=location, key=key, unknown=unknown)
+
+    def output(self, schema, status_code=200, headers=None):
+        """A decorator for serializing response dictionaries or SQLAlchemy objects.
+           Supports both Pydantic and Marshmallow.
+
+        Usage::
+            from typing import Optional
+
+            from pydantic import BaseModel
+            from sqlalchemy import Column, Integer, String
+            import dune
+
+            from .models import Item
+
+
+            class Item(Base):
+                __tablename__ = "items"
+                id = Column(Integer, primary_key=True)
+                name = Column(String)
+
+
+            class ItemCreate(BaseModel)
+                id: Optional[int]
+                name: str
+
+                class Config:
+                    from_attributes = True
+
+            api = dune.API()
+
+            @api.route("/all")
+            @api.output(ItemCreate)
+            async def all_items(req, resp):
+                "Get all items"
+
+            resp.obj = session.query(Item)
+
+
+            @api.route("/create")
+            @api.input(ItemCreate)
+            @api.output(ItemCreate)
+            async def create(req, resp, *, data):
+                "Create item"
+
+                item = Item(**data)
+                session.add(item)
+                session.commit()
+
+                resp.obj = item
+        """
+
+        def decorator(f):
+            @wraps(f)
+            async def wrapper(req, resp, *args, **kwargs):
+                await f(req, resp, *args, **kwargs)
+                obj = resp.obj
+
+                if obj is None:
+                    raise TypeError("You must set `resp.obj` when using @output")
+
+                if isinstance(obj, (DeclarativeBase, Query, list)):
+                    if hasattr(schema, "from_orm"):
+                        resp.media = (
+                            [schema.from_orm(o).model_dump() for o in obj]
+                            if isinstance(obj, (Query, list))
+                            else schema.from_orm(obj).model_dump()
+                        )
+                    else:
+                        resp.media = (
+                            schema(many=True).dump(obj)
+                            if isinstance(obj, (Query, list))
+                            else schema().dump(obj)
+                        )
+                elif isinstance(obj, dict):
+                    resp.media = obj
+                else:
+                    raise TypeError("Return type is not serializable")
+
+                resp.status_code = status_code
+
+                if headers:
+                    resp.headers.update(headers)
+
+                return
+
+            return wrapper
+
+        return decorator
 
     def serve(self, *, address=None, port=None, **options):
         """Runs the application with uvicorn. If the ``PORT`` environment

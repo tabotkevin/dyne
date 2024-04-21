@@ -320,6 +320,7 @@ class Response:
         "session",
         "mimetype",
         "_stream",
+        "obj",
     ]
 
     text = content_setter("text/plain")
@@ -333,12 +334,15 @@ class Response:
         self.encoding = DEFAULT_ENCODING
         self.media = None  #: A Python object that will be content-negotiated and sent back to the client. Typically, in JSON formatting.
         self._stream = None
-        self.headers = {}  #: A Python dictionary of ``{key: value}``, representing the headers of the response.
+        self.headers = (
+            {}
+        )  #: A Python dictionary of ``{key: value}``, representing the headers of the response.
         self.formats = formats
         self.cookies = SimpleCookie()  #: The cookies set in the Response
         self.session = (
             req.session
         )  #: The cookie-based session data, in dict form, to add to the Response.
+        self.obj = None  # SQLAlchemy object(s) to be serialized using Pydantic or Marshmallow schemas
 
     # Property or func/dec
     def stream(self, func, *args, **kwargs):
