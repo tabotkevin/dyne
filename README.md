@@ -8,9 +8,9 @@
 
 ```python
 
-import dune
+import dyne
 
-api = dune.API()
+api = dyne.API()
 
 
 @api.route("/{greeting}")
@@ -34,13 +34,13 @@ serving up requests with gzip compression automatically.
 
 See
 [the documentation's feature tour](https://responder.readthedocs.io/en/latest/tour.html)
-for more details on features available in Dune.
+for more details on features available in dyne.
 
-## Installing Dune
+## Installing dyne
 
 Install the stable release:
 
-    $ pip install dune
+    $ pip install dyne
 
 ## The Basic Idea
 
@@ -69,7 +69,7 @@ Requests.
 - **A built in testing client that uses the actual Requests you know and love**.
 - The ability to mount other WSGI apps easily.
 - Automatic gzipped-responses.
-- In addition to Falcon's `on_get`, `on_post`, etc methods, Dune features an
+- In addition to Falcon's `on_get`, `on_post`, etc methods, dyne features an
   `on_request` method, which gets called on every type of request, much like Requests.
 - A production static file server is built-in.
 - Uvicorn built-in as a production web server. I would have chosen Gunicorn, but it

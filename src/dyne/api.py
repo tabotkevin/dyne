@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.testclient import TestClient
 
-from dune.models import Response
+from dyne.models import Response
 
 from . import status_codes
 from .background import BackgroundQueue
@@ -347,7 +347,7 @@ class API:
 
 
         Usage::
-            api = dune.API()
+            api = dyne.API()
 
             @api.route("/create")
             @api.input(ItemCreate)
@@ -446,7 +446,7 @@ class API:
 
             from pydantic import BaseModel
             from sqlalchemy import Column, Integer, String
-            import dune
+            import dyne
 
             from .models import Item
 
@@ -464,7 +464,7 @@ class API:
                 class Config:
                     from_attributes = True
 
-            api = dune.API()
+            api = dyne.API()
 
             @api.route("/all")
             @api.output(ItemCreate)

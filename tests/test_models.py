@@ -2,7 +2,7 @@ import inspect
 
 import pytest
 
-from dune import models
+from dyne import models
 
 _default_query = "q=%7b%20hello%20%7d&name=myname&user_name=test_user"
 
