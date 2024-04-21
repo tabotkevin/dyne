@@ -19,23 +19,9 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "responder"
-copyright = "2018, A Kenneth Reitz project"
-author = "Kenneth Reitz"
-
-# The short X.Y version
-import os  # noqa: E402
-
-# Path hackery to get current version number.
-here = os.path.abspath(os.path.dirname(__file__))
-
-about = {}
-with open(os.path.join(here, "..", "..", "responder", "__version__.py")) as f:
-    exec(f.read(), about)
-
-version = about["__version__"]
-# The full version, including alpha/beta/rc tags
-release = about["__version__"]
+project = "dune"
+copyright = "2024, A Tabot Kevin project"
+author = "Tabot Kevin"
 
 
 # -- General configuration ---------------------------------------------------
@@ -57,6 +43,7 @@ extensions = [
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
+    "sphinx.ext.autosectionlabel",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -81,7 +68,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
@@ -99,11 +86,15 @@ html_theme = "alabaster"
 # documentation.
 #
 html_theme_options = {
+    "description": ("A light weight Python async framework with batteries included."),
     "show_powered_by": False,
-    "github_user": "kennethreitz",
-    "github_repo": "responder",
-    "github_banner": False,
+    "fixed_sidebar": True,
+    "github_user": "tabotkevin",
+    "github_repo": "dune",
+    "github_banner": True,
     "show_related": False,
+    "github_button": True,
+    "github_type": "star",
 }
 
 
@@ -138,7 +129,7 @@ html_static_path = ["_static"]
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "responderdoc"
+htmlhelp_basename = "dunedoc"
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -162,7 +153,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "responder.tex", "responder Documentation", "Kenneth Reitz", "manual")
+    (master_doc, "dune.tex", "Dune Documentation", "Tabot Kevin", "manual")
 ]
 
 
@@ -170,7 +161,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "responder", "responder Documentation", [author], 1)]
+man_pages = [(master_doc, "dune", "Dune Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -181,10 +172,10 @@ man_pages = [(master_doc, "responder", "responder Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "responder",
-        "responder Documentation",
+        "dune",
+        "Dune Documentation",
         author,
-        "responder",
+        "Dune",
         "One line description of project.",
         "Miscellaneous",
     )
