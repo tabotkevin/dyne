@@ -1,13 +1,28 @@
 # Responder: a familiar HTTP Service Framework for Python
 
-
 [![Documentation Status](https://readthedocs.org/projects/mybinder/badge/?version=latest)](https://responder.kennethreitz.org/en/latest/)
 [![image](https://img.shields.io/pypi/v/responder.svg)](https://pypi.org/project/responder/)
 [![image](https://img.shields.io/pypi/l/responder.svg)](https://pypi.org/project/responder/)
 [![image](https://img.shields.io/pypi/pyversions/responder.svg)](https://pypi.org/project/responder/)
 [![image](https://img.shields.io/github/contributors/kennethreitz/responder.svg)](https://github.com/kennethreitz/responder/graphs/contributors)
 
-[![](https://farm2.staticflickr.com/1959/43750081370_a4e20752de_o_d.png)](https://responder.readthedocs.io)
+
+``` python
+
+import dune
+
+api = dune.API()
+
+
+@api.route("/{greeting}")
+async def greet_world(req, resp, *, greeting):
+    resp.text = f"{greeting}, world!"
+
+
+if __name__ == "__main__":
+    api.run()
+
+```
 
 Powered by [Starlette](https://www.starlette.io/). That `async` declaration is optional.
 [View documentation](https://responder.readthedocs.io).
@@ -26,13 +41,8 @@ for more details on features available in Responder.
 
 Install the stable release:
 
-    $ pipenv install responder
+    $ pip install dune
     ✨🍰✨
-
-Or, install from the development branch:
-
-    $ pip install -e git+https://github.com/taoufik07/responder.git#egg=responder
-
 
 # The Basic Idea
 
@@ -45,6 +55,7 @@ Requests.
 - Setting `resp.content` sends back bytes.
 - Setting `resp.text` sends back unicode, while setting `resp.html` sends back HTML.
 - Setting `resp.media` sends back JSON/YAML (`.text`/`.html`/`.content` override this).
+- Setting `resp.obj` deserializes SQLAlchemy object(s) using Pydantic or Marshmallow schemas
 - Case-insensitive `req.headers` dict (from Requests directly).
 - `resp.status_code`, `req.method`, `req.url`, and other familiar friends.
 
