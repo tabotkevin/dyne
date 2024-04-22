@@ -8,7 +8,7 @@ A light weight Python async framework with batteries included.
 
 |Build Status| |image1| |image2| |image3| |image4| |image5|
 
-.. |Build Status| image:: https://github.com/tabotkevin/flask_limit/actions/workflows/tests.yml/badge.svg
+.. |Build Status| image:: https://github.com/tabotkevin/dyne/actions/workflows/tests.yaml/badge.svg
    :target: https://github.com/tabotkevin/dyne/actions
 .. |image1| image:: https://img.shields.io/pypi/v/dyne.svg
    :target: https://pypi.org/project/dyne/
