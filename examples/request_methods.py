@@ -1,6 +1,6 @@
-import dune
+import dyne
 
-api = dune.API()
+api = dyne.API()
 
 
 @api.route("/greet/{greeting}")

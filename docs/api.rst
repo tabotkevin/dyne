@@ -5,7 +5,7 @@ API Documentation
 
 Web Service (API) Class
 -----------------------
-.. module:: responder
+.. module:: dyne
 
 .. autoclass:: API
     :inherited-members:
@@ -24,12 +24,12 @@ Requests & Responses
 Utility Functions
 -----------------
 
-.. autofunction:: responder.API.status_codes.is_100
+.. autofunction:: dyne.API.status_codes.is_100
 
-.. autofunction:: responder.API.status_codes.is_200
+.. autofunction:: dyne.API.status_codes.is_200
 
-.. autofunction:: responder.API.status_codes.is_300
+.. autofunction:: dyne.API.status_codes.is_300
 
-.. autofunction:: responder.API.status_codes.is_400
+.. autofunction:: dyne.API.status_codes.is_400
 
-.. autofunction:: responder.API.status_codes.is_500
+.. autofunction:: dyne.API.status_codes.is_500

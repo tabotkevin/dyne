@@ -2,9 +2,9 @@ import time
 
 from pydantic import BaseModel
 
-import dune
+import dyne
 
-api = dune.API()
+api = dyne.API()
 
 
 class BookSchema(BaseModel):

@@ -1,10 +1,10 @@
 ## A light weight Python async framework with batteries included.
 
-[![Documentation Status](https://readthedocs.org/projects/mybinder/badge/?version=latest)](https://responder.kennethreitz.org/en/latest/)
-[![image](https://img.shields.io/pypi/v/responder.svg)](https://pypi.org/project/responder/)
-[![image](https://img.shields.io/pypi/l/responder.svg)](https://pypi.org/project/responder/)
-[![image](https://img.shields.io/pypi/pyversions/responder.svg)](https://pypi.org/project/responder/)
-[![image](https://img.shields.io/github/contributors/kennethreitz/responder.svg)](https://github.com/kennethreitz/responder/graphs/contributors)
+[![Documentation Status](https://readthedocs.org/projects/dyneapi/badge/?version=latest)](https://dyneapi.readthedocs.io/en/latest/?badge=latest)
+[![image](https://img.shields.io/pypi/v/dyne.svg)](https://pypi.org/project/dyne/)
+[![image](https://img.shields.io/pypi/l/dyne.svg)](https://pypi.org/project/dyne/)
+[![image](https://img.shields.io/pypi/pyversions/dyne.svg)](https://pypi.org/project/dyne/)
+[![image](https://img.shields.io/github/contributors/tabotkevin/dyne.svg)](https://github.com/tabotkevin/dyne/graphs/contributors)
 
 ```python
 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 ```
 
 Powered by [Starlette](https://www.starlette.io/). That `async` declaration is optional.
-[View documentation](https://responder.readthedocs.io).
+[View documentation](https://dyneapi.readthedocs.io).
 
 This gets you a ASGI app, with a production static files server pre-installed, jinja2
 templating (without additional imports), and a production webserver based on uvloop,
@@ -33,7 +33,7 @@ serving up requests with gzip compression automatically.
 ## More Examples
 
 See
-[the documentation's feature tour](https://responder.readthedocs.io/en/latest/tour.html)
+[the documentation's feature tour](https://dyneapi.readthedocs.io/en/latest/tour.html)
 for more details on features available in dyne.
 
 ## Installing dyne

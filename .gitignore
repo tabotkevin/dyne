@@ -9,6 +9,7 @@ wheels/
 
 # venv
 .venv
+db
 
 .vscode/
 .cache
