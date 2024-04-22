@@ -6,9 +6,9 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-import dune
+import dyne
 
-api = dune.API()
+api = dyne.API()
 
 
 class Base(DeclarativeBase):
@@ -75,11 +75,9 @@ async def all_books(req, resp):
     resp.obj = session.query(Book)
 
 
-r = api.requests.post(
-    "http://;/create", json={"price": 11.99, "title": "Marshmallows book"}
-)
-print(r.text)
+r = api.requests.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
+print(r.json())
 
 r = api.requests.post("http://;/all")
-print(r.text)
+print(r.json())
 os.remove("db")

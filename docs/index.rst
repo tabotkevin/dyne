@@ -1,37 +1,37 @@
-.. responder documentation master file, created by
+.. dyne documentation master file, created by
    sphinx-quickstart on Thu Oct 11 12:58:34 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-A familiar HTTP Service Framework
+A light weight Python async framework with batteries included.
 =================================
 
 |Build Status| |image1| |image2| |image3| |image4| |image5|
 
-.. |Build Status| image:: https://travis-ci.org/kennethreitz/responder.svg?branch=master
-   :target: https://travis-ci.org/kennethreitz/responder
-.. |image1| image:: https://img.shields.io/pypi/v/responder.svg
-   :target: https://pypi.org/project/responder/
-.. |image2| image:: https://img.shields.io/pypi/l/responder.svg
-   :target: https://pypi.org/project/responder/
-.. |image3| image:: https://img.shields.io/pypi/pyversions/responder.svg
-   :target: https://pypi.org/project/responder/
-.. |image4| image:: https://img.shields.io/github/contributors/kennethreitz/responder.svg
-   :target: https://github.com/kennethreitz/responder/graphs/contributors
+.. |Build Status| image:: https://github.com/tabotkevin/dyne/actions/workflows/tests.yaml/badge.svg
+   :target: https://github.com/tabotkevin/dyne/actions
+.. |image1| image:: https://img.shields.io/pypi/v/dyne.svg
+   :target: https://pypi.org/project/dyne/
+.. |image2| image:: https://img.shields.io/pypi/l/dyne.svg
+   :target: https://pypi.org/project/dyne/
+.. |image3| image:: https://img.shields.io/pypi/pyversions/dyne.svg
+   :target: https://pypi.org/project/dyne/
+.. |image4| image:: https://img.shields.io/github/contributors/tabotkevin/dyne.svg
+   :target: https://github.com/tabotkevin/dyne/graphs/contributors
 .. |image5| image:: https://img.shields.io/badge/Say%20Thanks-!-1EAEDB.svg
-   :target: https://saythanks.io/to/kennethreitz
+   :target: https://saythanks.io/to/tabotkevin
 
 .. code:: python
 
-   import responder
+   import dyne
 
-   api = responder.API()
+   api = dyne.API()
 
    @api.route("/{greeting}")
    async def greet_world(req, resp, *, greeting):
        resp.text = f"{greeting}, world!"
 
-   if __name__ == '__main__':
+   if __name__ == "__main__":
        api.run()
 
 Powered by `Starlette <https://www.starlette.io/>`_. That ``async`` declaration is optional.
@@ -57,34 +57,6 @@ Features
 - OpenAPI schema generation, with interactive documentation!
 - Single-page webapp support!
 
-Testimonials
-------------
-
-   “Pleasantly very taken with python-responder.
-   `@kennethreitz <https://twitter.com/kennethreitz>`_ at his absolute
-   best.”
-
-    —Rudraksh M.K.
-
-
-
-..
-
-   "ASGI is going to enable all sorts of new high-performance web services. It's awesome to see Responder starting to take advantage of that."
-
-    —Tom Christie, author of `Django REST Framework`_
-
-..
-
-
-   “I love that you are exploring new patterns. Go go go!”
-
-    — Danny Greenfield, author of `Two Scoops of Django`_
-
-
-.. _Django REST Framework: https://www.django-rest-framework.org/
-.. _Two Scoops of Django: https://www.twoscoopspress.com/products/two-scoops-of-django-1-11
-
 User Guides
 -----------
 
@@ -98,15 +70,14 @@ User Guides
    api
 
 
-Installing Responder
+Installing dyne
 --------------------
 
 .. code-block:: shell
 
-    $ pipenv install responder
-    ✨🍰✨
+    $ pipenv install dyne
 
-Only **Python 3.6+** is supported.
+Only **Python 3.6+** and above is supported.
 
 
 The Basic Idea
@@ -128,7 +99,7 @@ Ideas
 - **A built in testing client that uses the actual Requests you know and love**.
 - The ability to mount other WSGI apps easily.
 - Automatic gzipped-responses.
-- In addition to Falcon's ``on_get``, ``on_post``, etc methods, Responder features an ``on_request`` method, which gets called on every type of request, much like Requests.
+- In addition to Falcon's ``on_get``, ``on_post``, etc methods, dyne features an ``on_request`` method, which gets called on every type of request, much like Requests.
 - A production static files server is built-in.
 - `Uvicorn <https://www.uvicorn.org/>`_ is built-in as a production web server. I would have chosen Gunicorn, but it doesn't run on Windows. Plus, Uvicorn serves well to protect against `slowloris <https://en.wikipedia.org/wiki/Slowloris_(computer_security)>`_ attacks, making nginx unnecessary in production.
 - GraphQL support, via Graphene. The goal here is to have any GraphQL query exposable at any route, magically.

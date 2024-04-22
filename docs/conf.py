@@ -85,16 +85,13 @@ html_theme = "alabaster"
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
+
 html_theme_options = {
-    "description": ("A light weight Python async framework with batteries included."),
     "show_powered_by": False,
-    "fixed_sidebar": True,
     "github_user": "tabotkevin",
     "github_repo": "dune",
-    "github_banner": True,
+    "github_banner": False,
     "show_related": False,
-    "github_button": True,
-    "github_type": "star",
 }
 
 

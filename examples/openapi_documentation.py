@@ -1,8 +1,8 @@
 from marshmallow import Schema, fields
 
-import dune
+import dyne
 
-api = dune.API()
+api = dyne.API()
 
 
 @api.schema("Pet")

@@ -1,7 +1,7 @@
 Quick Start!
 ============
 
-This section of the documentation exists to provide an introduction to the Responder interface,
+This section of the documentation exists to provide an introduction to the dyne interface,
 as well as educate the user on basic functionality.
 
 
@@ -10,9 +10,9 @@ Declare a Web Service
 
 The first thing you need to do is declare a web service::
 
-    import responder
+    import dyne
 
-    api = responder.API()
+    api = dyne.API()
 
 Hello World!
 ------------
@@ -73,11 +73,11 @@ If the client requests YAML instead (with a header of ``Accept: application/x-ya
 Rendering a Template
 --------------------
 
-Responder provides a built-in light `jinja2 <http://jinja.pocoo.org/docs/>`_ wrapper ``templates.Templates``
+dyne provides a built-in light `jinja2 <http://jinja.pocoo.org/docs/>`_ wrapper ``templates.Templates``
 
 Usage::
 
-  from responder.templates import Templates
+  from dyne.templates import Templates
 
   templates = Templates()
 

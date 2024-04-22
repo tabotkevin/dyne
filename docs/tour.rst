@@ -46,95 +46,24 @@ Serve a GraphQL API::
             return f"Hello {name}"
 
     schema = graphene.Schema(query=Query)
-    view = responder.ext.GraphQLView(api=api, schema=schema)
+    view = dyne.ext.GraphQLView(api=api, schema=schema)
 
     api.add_route("/graph", view)
 
 Visiting the endpoint will render a *GraphiQL* instance, in the browser.
 
-You can make use of Responder's Request and Response objects in your GraphQL resolvers through ``info.context['request']`` and ``info.context['response']``.
+You can make use of dyne's Request and Response objects in your GraphQL resolvers through ``info.context['request']`` and ``info.context['response']``.
 
 
 OpenAPI Schema Support
 ----------------------
 
-Responder comes with built-in support for OpenAPI / marshmallow
+dyne comes with built-in support for OpenAPI / marshmallow and Pydantic::
 
-New in Responder `1.4.0`::
-
-    import responder
-    from responder.ext.schema import Schema as OpenAPISchema
+    import dyne
     from marshmallow import Schema, fields
 
-    contact = {
-        "name": "API Support",
-        "url": "http://www.example.com/support",
-        "email": "support@example.com",
-    }
-    license = {
-        "name": "Apache 2.0",
-        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
-    }
-    
-    api = responder.API()
-
-    schema = OpenAPISchema(
-        app=api,
-        title="Web Service",
-        version="1.0",
-        openapi="3.0.2",
-        description="A simple pet store",
-        terms_of_service="http://example.com/terms/",
-        contact=contact,
-        license=license,
-    )
-
-    @schema.schema("Pet")
-    class PetSchema(Schema):
-        name = fields.Str()
-
-
-    @api.route("/")
-    def route(req, resp):
-        """A cute furry animal endpoint.
-        ---
-        get:
-            description: Get a random pet
-            responses:
-                200:
-                    description: A pet to be returned
-                    content:  
-                        application/json: 
-                            schema: 
-                                $ref: '#/components/schemas/Pet'                         
-        """
-        resp.media = PetSchema().dump({"name": "little orange"})
-
-
-Old way *It's recommended to use the code above* ::
-
-    import responder
-    from marshmallow import Schema, fields
-
-    contact = {
-        "name": "API Support",
-        "url": "http://www.example.com/support",
-        "email": "support@example.com",
-    }
-    license = {
-        "name": "Apache 2.0",
-        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
-    }
-
-    api = responder.API(
-        title="Web Service",
-        version="1.0",
-        openapi="3.0.2",
-        description="A simple pet store",
-        terms_of_service="http://example.com/terms/",
-        contact=contact,
-        license=license,
-    )
+    api = dyne.API()
 
     @api.schema("Pet")
     class PetSchema(Schema):
@@ -190,54 +119,204 @@ Old way *It's recommended to use the code above* ::
 Interactive Documentation
 -------------------------
 
-Responder can automatically supply API Documentation for you. Using the example above
-
-The new and recommended way::
-
-    ...
-    from responder.ext.schema import Schema
-    ...
-    api = responder.API()
-
-    schema = Schema(
-        app=api,
-        title="Web Service",
-        version="1.0",
-        openapi="3.0.2",
-        ...
-        docs_route='/docs',
-        ...
-        description=description,
-        terms_of_service=terms_of_service,
-        contact=contact,
-        license=license,
-    )
-    
-
-The old way ::
-
-    api = responder.API(
-        title="Web Service",
-        version="1.0",
-        openapi="3.0.2",
-        docs_route='/docs',
-        description=description,
-        terms_of_service=terms_of_service,
-        contact=contact,
-        license=license,
-    )
+dyne can automatically supply API Documentation for you. Using the example above
 
 This will make ``/docs`` render interactive documentation for your API.
+
+
+Request validation
+-------
+Dyne provides built-in support for validating requests from various sources such as the request body (JSON, form, YAML), headers, cookies, and query parameters against Marshmallow and Pydantic schemas. This is done using the `@input` decorator, which specifies the location for validation. Supported locations are `media`, `headers`, `cookies`, and `query(params)`. 
+
+Optionally, you can provide a `key` variable, which acts as the name of the variable to be used in the endpoint. By default, the `key` is the value of the location, except for `media`, where the key is called `data` by default.
+
+::
+
+    import time
+
+    from marshmallow import Schema, fields
+    from pydantic import BaseModel
+
+    import dyne
+
+    api = dyne.API()
+
+
+    @api.schema("BookSchema")
+    class BookSchema(BaseModel):  # Pydantic schema
+        price: float
+        title: str
+
+
+    class QuerySchema(Schema):  # Marshmellow schema
+        page = fields.Int(missing=1)
+        limit = fields.Int(missing=10)
+
+
+    # Media routes
+    @api.route("/book", methods=["POST"])
+    @api.input(BookSchema)  # default location is `media` default media key is `data`
+    async def book_create(req, resp, *, data):
+        @api.background.task
+        def process_book(book):
+            time.sleep(2)
+            print(book)
+
+        process_book(data)
+        resp.media = {"msg": "created"}
+
+
+    # Query(params) route
+    @api.route("/books")
+    @api.input(QuerySchema, location="query")
+    async def get_books(req, resp, *, query):
+        print(query)  # e.g {'page': 2, 'limit': 20}
+        resp.media = {"books": [{"title": "Python", "price": 39.00}]}
+
+
+    # Media requests
+    r = api.requests.post("http://;/book", json={"price": 9.99, "title": "Pydantic book"})
+    print(r.json())
+
+    # Query(params) requests
+    r = api.requests.get("http://;/books?page=2&limit=20")
+    print(r.json())
+
+
+Response Deserialization
+-------
+Dyne provides the functionality to deserialize SQLAlchemy objects or queries into JSON responses using Marshmallow or Pydantic schemas. This is achieved by using the `@output` decorator and setting `resp.obj` within the endpoint, which allows Dyne to deserialize the response as specified by the schema.
+
+::
+
+    import os
+    from typing import Optional
+
+    from marshmallow import Schema, fields
+    from pydantic import BaseModel, ConfigDict
+    from sqlalchemy import Column, Float, Integer, String, create_engine
+    from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+    import dyne
+
+    api = dyne.API()
+
+
+    # Define an example SQLAlchemy model
+    class Book(DeclarativeBase):
+        __tablename__ = "books"
+        id = Column(Integer, primary_key=True)
+        price = Column(Float)
+        title = Column(String)
+
+
+    # Create tables in the database
+    engine = create_engine("sqlite:///db", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+
+    # Create a session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    book1 = Book(price=9.99, title="Harry Potter")
+    session.add(book1)
+    session.commit()
+
+
+    @api.schema("BookSchema")
+    class BookSchema(BaseModel):
+        id: Optional[int] = None
+        price: float
+        title: str
+        model_config = ConfigDict(from_attributes=True)
+
+
+    @api.route("/create", methods=["POST"])
+    @api.input(BookSchema)
+    @api.output(BookSchema)
+    async def create(req, resp, *, data):
+        """Create book"""
+
+        book = Book(**data)
+        session.add(book)
+        session.commit()
+
+        resp.obj = book
+
+
+    @api.route("/all", methods=["POST"])
+    @api.output(BookSchema)
+    async def all_books(req, resp):
+        """Get all books"""
+
+        resp.obj = session.query(Book)
+
+
+    r = api.requests.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
+    print(r.json())  # {'id': 3, 'price': 11.99, 'title': 'Monty Python'}
+
+    r = api.requests.post("http://;/all")
+    print(r.json())  # [{'id': 1, 'price': 9.99, 'title': 'Harry Potter'}, {'id': 2, 'price': 11.99, 'title': 'Monty Python'}]
+
+
+Other responses
+-------
+The `@expect` decorator accepts a dictionary argument containing response status codes as keys and their corresponding documentation as values.
+
+To include text descriptions for these responses, assign a description string to the value of each status code. Used in the `OpenAPI` documentation.
+
+::
+
+    import dune
+
+    api = dune.API()
+
+
+    @api.route("/book", methods=["POST"])
+    @api.expect(
+        {
+            401: "Invalid access or refresh token",
+            403: "Please verify your account",
+        }
+    )
+    async def book_create(req, resp):
+        resp.media = {"msg": "created"}
+
+
+@input / @output / @expect
+-------
+Putting `@input`, `@output` and `@expect` together.
+
+::
+    
+    @api.route("/create", methods=["POST"])
+    @api.input(BookSchema)
+    @api.output(BookSchema)
+    @api.expect(
+        {
+            401: "Invalid access or refresh token",
+            409: "Book already exists",
+        }
+    )
+    async def create(req, resp, *, data):
+        """Create book"""
+
+        book = Book(**data)
+        session.add(book)
+        session.commit()
+
+        resp.obj = book
+
 
 Mount a WSGI / ASGI Apps (e.g. Flask, Starlette,...)
 ----------------------------------------------------
 
-Responder gives you the ability to mount another ASGI / WSGI app at a subroute::
+dyne gives you the ability to mount another ASGI / WSGI app at a subroute::
 
-    import responder
+    import dyne
     from flask import Flask
 
-    api = responder.API()
+    api = dyne.API()
     flask = Flask(__name__)
 
     @flask.route('/')
@@ -251,7 +330,7 @@ That's it!
 Single-Page Web Apps
 --------------------
 
-If you have a single-page webapp, you can tell Responder to serve up your ``static/index.html`` at a route, like so::
+If you have a single-page webapp, you can tell dyne to serve up your ``static/index.html`` at a route, like so::
 
     api.add_route("/", static=True)
 
@@ -260,7 +339,7 @@ This will make ``index.html`` the default response to all undefined routes.
 Reading / Writing Cookies
 -------------------------
 
-Responder makes it very easy to interact with cookies from a Request, or add some to a Response::
+dyne makes it very easy to interact with cookies from a Request, or add some to a Response::
 
     >>> resp.cookies["hello"] = "world"
 
@@ -289,11 +368,11 @@ For more information see `directives <https://developer.mozilla.org/en-US/docs/W
 Using Cookie-Based Sessions
 ---------------------------
 
-Responder has built-in support for cookie-based sessions. To enable cookie-based sessions, simply add something to the ``resp.session`` dictionary::
+dyne has built-in support for cookie-based sessions. To enable cookie-based sessions, simply add something to the ``resp.session`` dictionary::
 
     >>> resp.session['username'] = 'kennethreitz'
 
-A cookie called ``Responder-Session`` will be set, which contains all the data in ``resp.session``. It is signed, for verification purposes.
+A cookie called ``dyne-Session`` will be set, which contains all the data in ``resp.session``. It is signed, for verification purposes.
 
 You can easily read a Request's session data, that can be trusted to have originated from the API::
 
@@ -302,7 +381,7 @@ You can easily read a Request's session data, that can be trusted to have origin
 
 **Note**: if you are using this in production, you should pass the ``secret_key`` argument to ``API(...)``::
 
-    api = responder.API(secret_key=os.environ['SECRET_KEY'])
+    api = dyne.API(secret_key=os.environ['SECRET_KEY'])
 
 Using ``before_request``
 ------------------------
@@ -325,7 +404,7 @@ For ``websockets``::
 WebSocket Support
 -----------------
 
-Responder supports WebSockets::
+dyne supports WebSockets::
 
     @api.route('/ws', websocket=True)
     async def websocket(ws):
@@ -353,7 +432,7 @@ Closing the connection::
 Using Requests Test Client
 --------------------------
 
-Responder comes with a first-class, well supported test client for your ASGI web services: **Requests**.
+dyne comes with a first-class, well supported test client for your ASGI web services: **Requests**.
 
 Here's an example of a test (written with pytest)::
 
@@ -380,7 +459,7 @@ Want HSTS (to redirect all traffic to HTTPS)?
 
 ::
 
-    api = responder.API(enable_hsts=True)
+    api = dyne.API(enable_hsts=True)
 
 
 Boom.
@@ -392,10 +471,10 @@ Want `CORS <https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/>`_ ?
 
 ::
 
-    api = responder.API(cors=True)
+    api = dyne.API(cors=True)
 
 
-The default parameters used by **Responder** are restrictive by default, so you'll need to explicitly enable particular origins, methods, or headers, in order for browsers to be permitted to use them in a Cross-Domain context.
+The default parameters used by **dyne** are restrictive by default, so you'll need to explicitly enable particular origins, methods, or headers, in order for browsers to be permitted to use them in a Cross-Domain context.
 
 In order to set custom parameters, you need to set the ``cors_params`` argument of ``api``, a dictionary containing the following entries:
 
@@ -416,7 +495,7 @@ A 400 response will be raised, if a request does not match any of the provided p
 
 ::
 
-    api = responder.API(allowed_hosts=['example.com', 'tenant.example.com'])
+    api = dyne.API(allowed_hosts=['example.com', 'tenant.example.com'])
 
 * ``allowed_hosts`` - A list of allowed hostnames. 
 

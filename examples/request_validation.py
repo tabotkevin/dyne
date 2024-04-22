@@ -3,9 +3,9 @@ import time
 from marshmallow import Schema, fields
 from pydantic import BaseModel
 
-import dune
+import dyne
 
-api = dune.API()
+api = dyne.API()
 
 
 @api.schema("BookSchema")

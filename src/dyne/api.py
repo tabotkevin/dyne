@@ -13,8 +13,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.testclient import TestClient
 
-from dyne.models import Response
-
 from . import status_codes
 from .background import BackgroundQueue
 from .ext.schema import Schema as OpenAPISchema

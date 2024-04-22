@@ -1,16 +1,16 @@
-Deploying Responder
+Deploying Dyne
 ===================
 
-You can deploy Responder anywhere you can deploy a basic Python application.
+You can deploy Dyne anywhere you can deploy a basic Python application.
 
 Docker Deployment
 -----------------
 
-Assuming existing ``api.py`` and ``Pipfile.lock`` containing ``responder``.
+Assuming existing ``api.py`` and ``Pipfile.lock`` containing ``dyne``.
 
 ``Dockerfile``::
 
-    FROM kennethreitz/pipenv
+    FROM tabotkevin/pipenv
     ENV PORT '80'
     COPY . /app
     CMD python3 api.py
@@ -29,16 +29,16 @@ The basics::
     $ heroku create
     ...
 
-Install Responder::
+Install dyne::
 
-    $ pipenv install responder
+    $ pipenv install dyne
     ...
 
 Write out an ``api.py``::
 
-    import responder
+    import dyne
 
-    api = responder.API()
+    api = dyne.API()
 
     @api.route("/")
     async def hello(req, resp):
