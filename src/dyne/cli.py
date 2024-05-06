@@ -1,10 +1,10 @@
-"""Responder.
+"""Dyne.
 
 Usage:
-  responder
-  responder run [--build] [--debug] <module>
-  responder build
-  responder --version
+  dyne
+  dyne run [--build] [--debug] <module>
+  dyne build
+  dyne --version
 
 Options:
   -h --help     Show this screen.
@@ -15,6 +15,7 @@ Options:
 import os
 
 import docopt
+
 from .__version__ import __version__
 
 

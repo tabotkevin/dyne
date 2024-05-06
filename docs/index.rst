@@ -75,9 +75,9 @@ Installing dyne
 
 .. code-block:: shell
 
-    $ pipenv install dyne
+    $ pip install dyne
 
-Only **Python 3.6+** and above is supported.
+Only **Python 3.8+** and above is supported.
 
 
 The Basic Idea

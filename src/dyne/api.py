@@ -291,7 +291,7 @@ class API:
         self.router.apps.update({route: app})
 
     def session(self, base_url="http://;"):
-        """Testing HTTP client. Returns a Requests session object, able to send HTTP requests to the Responder application.
+        """Testing HTTP client. Returns a Requests session object, able to send HTTP requests to the dyne application.
 
         :param base_url: The URL to mount the connection adaptor to.
         """
@@ -411,13 +411,13 @@ class API:
         Usage::
             import time
             from pydantic import BaseModel
-            import responder
+            import dyne
 
             class Item(BaseModel)
                 price: float
                 title: str
 
-            api = responder.API()
+            api = dyne.API()
 
             @api.route("/create")
             @api.input(Item)
