@@ -1,7 +1,7 @@
 OPENAPI_THEMES = ["elements", "rapidoc", "redoc", "swaggerui"]
 DEFAULT_ENCODING = "utf-8"
 DEFAULT_OPENAPI_THEME = "elements"
-DEFAULT_SESSION_COOKIE = "Responder-Session"
+DEFAULT_SESSION_COOKIE = "Dyne-Session"
 DEFAULT_SECRET_KEY = "NOTASECRET"
 
 DEFAULT_CORS_PARAMS = {

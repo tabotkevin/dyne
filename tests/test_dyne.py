@@ -1240,10 +1240,10 @@ def test_pydantic_response_schema_serialization(api):
 
         resp.obj = session.query(Book)
 
-    data = {"title": "Learning Responder", "price": 39.99}
+    data = {"title": "Learning dyne", "price": 39.99}
     response = api.requests.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status_codes.HTTP_200
-    assert response.json() == {"id": 3, "price": 39.99, "title": "Learning Responder"}
+    assert response.json() == {"id": 3, "price": 39.99, "title": "Learning dyne"}
 
     response = api.requests.get(api.url_for(all_books))
     assert response.status_code == api.status_codes.HTTP_200
@@ -1254,7 +1254,7 @@ def test_pydantic_response_schema_serialization(api):
     titles = sorted([book["title"] for book in rs])
     assert ids == [1, 2, 3]
     assert prices == [9.99, 10.99, 39.99]
-    assert titles == ["Harry Potter", "Learning Responder", "Pirates of the sea"]
+    assert titles == ["Harry Potter", "Learning dyne", "Pirates of the sea"]
     os.remove("py.db")
 
 
