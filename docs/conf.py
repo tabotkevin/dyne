@@ -19,7 +19,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "dune"
+project = "dyne"
 copyright = "2024, A Tabot Kevin project"
 author = "Tabot Kevin"
 
@@ -89,7 +89,7 @@ html_theme = "alabaster"
 html_theme_options = {
     "show_powered_by": False,
     "github_user": "tabotkevin",
-    "github_repo": "dune",
+    "github_repo": "dyne",
     "github_banner": False,
     "show_related": False,
 }
@@ -126,7 +126,7 @@ html_static_path = ["_static"]
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "dunedoc"
+htmlhelp_basename = "dynedoc"
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -150,7 +150,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "dune.tex", "Dune Documentation", "Tabot Kevin", "manual")
+    (master_doc, "dyne.tex", "Dyne Documentation", "Tabot Kevin", "manual")
 ]
 
 
@@ -158,7 +158,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "dune", "Dune Documentation", [author], 1)]
+man_pages = [(master_doc, "dyne", "Dyne Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -169,10 +169,10 @@ man_pages = [(master_doc, "dune", "Dune Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "dune",
-        "Dune Documentation",
+        "dyne",
+        "Dyne Documentation",
         author,
-        "Dune",
+        "dyne",
         "One line description of project.",
         "Miscellaneous",
     )
