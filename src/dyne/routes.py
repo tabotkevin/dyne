@@ -4,8 +4,8 @@ import re
 import traceback
 from collections import defaultdict
 
+from a2wsgi import WSGIMiddleware
 from starlette.concurrency import run_in_threadpool
-from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.websockets import WebSocket, WebSocketClose
 
 from . import status
