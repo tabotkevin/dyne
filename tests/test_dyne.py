@@ -1068,8 +1068,8 @@ def test_marshmallow_input_request_validation(api):
         name = fields.Str()
 
     class QuerySchema(Schema):
-        page = fields.Int(missing=1)
-        limit = fields.Int(missing=10)
+        page = fields.Int(load_default=1)
+        limit = fields.Int(load_default=10)
 
     class HeaderSchema(Schema):
         x_version = fields.String(data_key="X-Version", required=True)
