@@ -8,6 +8,8 @@
 #   with-sources: false
 
 -e file:.
+a2wsgi==1.10.7
+    # via dyne
 aiofiles==23.2.1
     # via dyne
 aniso8601==9.0.1
