@@ -502,9 +502,9 @@ class API:
                 if isinstance(obj, (DeclarativeBase, Query, list)):
                     if hasattr(schema, "from_orm"):  # pydantic
                         resp.media = (
-                            [schema.from_orm(o).model_dump() for o in obj]
+                            [schema.model_validate(o).model_dump() for o in obj]
                             if isinstance(obj, (Query, list))
-                            else schema.from_orm(obj).model_dump()
+                            else schema.model_validate(obj).model_dump()
                         )
                     else:  # marshmallow
                         resp.media = (
