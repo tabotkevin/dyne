@@ -8,9 +8,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.websockets import WebSocket, WebSocketClose
 
-from dyne.exceptions import abort
-
 from . import status
+from .exceptions import abort
 from .formats import get_formats
 from .models import Request, Response
 
