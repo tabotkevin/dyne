@@ -15,7 +15,7 @@ from starlette.responses import Response as StarletteResponse
 from starlette.responses import StreamingResponse as StarletteStreamingResponse
 
 from .statics import DEFAULT_ENCODING
-from .status_codes import HTTP_301
+from .status import HTTP_301_MOVED_PERMANENTLY as HTTP_301
 
 
 class QueryDict(dict):

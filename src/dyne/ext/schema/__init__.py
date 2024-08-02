@@ -3,7 +3,7 @@ from pathlib import Path
 from apispec import APISpec, yaml_utils
 from apispec.ext.marshmallow import MarshmallowPlugin
 
-from dyne import status_codes
+from dyne import status
 from dyne.statics import DEFAULT_OPENAPI_THEME, OPENAPI_THEMES
 from dyne.templates import Templates
 
@@ -139,6 +139,6 @@ class Schema:
         resp.html = self.docs
 
     def schema_response(self, req, resp):
-        resp.status_code = status_codes.HTTP_200
+        resp.status_code = status.HTTP_200_OK
         resp.headers["Content-Type"] = "application/x-yaml"
         resp.content = self.openapi
