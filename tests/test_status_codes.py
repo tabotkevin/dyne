@@ -1,6 +1,6 @@
 import pytest
 
-from dyne import status_codes
+from dyne import status
 
 
 @pytest.mark.parametrize(
@@ -13,7 +13,7 @@ from dyne import status_codes
     ],
 )
 def test_is_100(status_code, expected):
-    assert status_codes.is_100(status_code) is expected
+    assert status.is_100(status_code) is expected
 
 
 @pytest.mark.parametrize(
@@ -26,7 +26,7 @@ def test_is_100(status_code, expected):
     ],
 )
 def test_is_200(status_code, expected):
-    assert status_codes.is_200(status_code) is expected
+    assert status.is_200(status_code) is expected
 
 
 @pytest.mark.parametrize(
@@ -39,7 +39,7 @@ def test_is_200(status_code, expected):
     ],
 )
 def test_is_300(status_code, expected):
-    assert status_codes.is_300(status_code) is expected
+    assert status.is_300(status_code) is expected
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_is_300(status_code, expected):
     ],
 )
 def test_is_400(status_code, expected):
-    assert status_codes.is_400(status_code) is expected
+    assert status.is_400(status_code) is expected
 
 
 @pytest.mark.parametrize(
@@ -65,4 +65,4 @@ def test_is_400(status_code, expected):
     ],
 )
 def test_is_500(status_code, expected):
-    assert status_codes.is_500(status_code) is expected
+    assert status.is_500(status_code) is expected

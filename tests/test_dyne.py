@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.testclient import TestClient as StarletteTestClient
 
 import dyne
+from dyne import status
 from dyne.routes import Route, WebSocketRoute
 from dyne.templates import Templates
 
@@ -88,7 +89,7 @@ def test_class_based_view_parameters(api):
         pass
 
     resp = api.session().get("http://;/Hello")
-    assert resp.status_code == api.status_codes.HTTP_405
+    assert resp.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 
 def test_requests_session(api):
@@ -110,9 +111,9 @@ def test_status_code(api):
     @api.route("/")
     def hello(req, resp):
         resp.text = "keep going"
-        resp.status_code = dyne.status_codes.HTTP_416
+        resp.status_code = status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE
 
-    assert api.requests.get("http://;/").status_code == dyne.status_codes.HTTP_416
+    assert api.requests.get("http://;/").status_code == 416
 
 
 def test_json_media(api):
@@ -184,9 +185,9 @@ def test_class_based_view_status_code(api):
     @api.route("/")
     class ThingsResource:
         def on_request(self, req, resp):
-            resp.status_code = dyne.status_codes.HTTP_416
+            resp.status_code = api.status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE
 
-    assert api.requests.get("http://;/").status_code == dyne.status_codes.HTTP_416
+    assert api.requests.get("http://;/").status_code == 416
 
 
 def test_query_params(api, url):
@@ -675,13 +676,13 @@ def test_500(api):
         api, base_url="http://;", raise_server_exceptions=False
     )
     r = dumb_client.get(api.url_for(view))
-    assert r.status_code == dyne.status_codes.HTTP_500
+    assert r.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 def test_404(api):
     r = api.requests.get("/foo")
 
-    assert r.status_code == dyne.status_codes.HTTP_404
+    assert r.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_websockets_text(api):
@@ -892,21 +893,21 @@ def test_staticfiles(tmpdir, static_route):
 
     # ok
     r = session.get(f"{static_route}/{asset1.basename}")
-    assert r.status_code == api.status_codes.HTTP_200
+    assert r.status_code == api.status.HTTP_200_OK
 
     r = session.get(f"{static_route}/{parent_dir}/{asset2.basename}")
-    assert r.status_code == api.status_codes.HTTP_200
+    assert r.status_code == api.status.HTTP_200_OK
 
     # Asset not found
     r = session.get(f"{static_route}/not_found.css")
-    assert r.status_code == api.status_codes.HTTP_404
+    assert r.status_code == api.status.HTTP_404_NOT_FOUND
 
     # Not found on dir listing
     r = session.get(f"{static_route}")
-    assert r.status_code == api.status_codes.HTTP_404
+    assert r.status_code == api.status.HTTP_404_NOT_FOUND
 
     r = session.get(f"{static_route}/{parent_dir}")
-    assert r.status_code == api.status_codes.HTTP_404
+    assert r.status_code == api.status.HTTP_404_NOT_FOUND
 
 
 def test_response_html_property(api):
@@ -1045,20 +1046,20 @@ def test_pydantic_input_request_validation(api):
     data = {"name": "Test Item"}
     # resp_mock.media.return_value = data
     response = api.requests.post(api.url_for(create_item), json=data)
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "created"
 
     # Valid  cookies
     client = api.requests
     client.cookies = {"max_age": "123", "is_cheap": "True"}
     response = client.get(api.url_for(home_cookies))
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "Welcome"
 
     # Invalid Pydantic data
     data = {"name": [123]}  # Invalid data
     response = api.requests.post(api.url_for(create_item), json=data)
-    assert response.status_code == api.status_codes.HTTP_400
+    assert response.status_code == api.status.HTTP_400_BAD_REQUEST
     assert "error" in response.text
 
 
@@ -1100,25 +1101,25 @@ def test_marshmallow_input_request_validation(api):
     # Valid data
     data = {"name": "Test Item"}
     response = api.requests.post(api.url_for(create_item), json=data)
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "created"
 
     # Valid params(query)
     response = api.requests.get(api.url_for(get_items), params={"page": 2, "limit": 20})
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"items": [{"name": "Scooter"}]}
 
     # Valid headers
     response = api.requests.post(
         api.url_for(item, id=1), headers={"X-Version": "2.4.5"}
     )
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"name": "Samsung Galaxy"}
 
     # Invalid data
     data = {"name": [123]}  # Invalid data
     response = api.requests.post(api.url_for(create_item), json=data)
-    assert response.status_code == api.status_codes.HTTP_400
+    assert response.status_code == api.status.HTTP_400_BAD_REQUEST
     assert "error" in response.text
 
 
@@ -1140,7 +1141,7 @@ def test_endpoint_request_methods(api):
         def on_get(self, req, resp, *, greeting):
             resp.text = f"GET person - {greeting}, world!"
             resp.headers.update({"X-Life": "41"})
-            resp.status_code = api.status_codes.HTTP_201
+            resp.status_code = api.status.HTTP_201_CREATED
 
         def on_post(self, req, resp, *, greeting):
             resp.text = f"POST person - {greeting}, world!"
@@ -1151,39 +1152,39 @@ def test_endpoint_request_methods(api):
             resp.headers.update({"X-Life": "43"})
 
     resp = api.requests.get("http://;/Hello")
-    assert resp.status_code == api.status_codes.HTTP_200
+    assert resp.status_code == api.status.HTTP_200_OK
     assert resp.text == "Hello, world!"
 
     resp = api.requests.post("http://;/Hello")
-    assert resp.status_code == api.status_codes.HTTP_405
+    assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
     resp = api.requests.get("http://;/me/Hey")
-    assert resp.status_code == api.status_codes.HTTP_405
+    assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
     resp = api.requests.post("http://;/me/Hey")
-    assert resp.status_code == api.status_codes.HTTP_200
+    assert resp.status_code == api.status.HTTP_200_OK
     assert resp.text == "POST - Hey, world!"
 
     resp = api.requests.get("http://;/no/Hello")
-    assert resp.status_code == api.status_codes.HTTP_405
+    assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
     resp = api.requests.post("http://;/no/Hello")
-    assert resp.status_code == api.status_codes.HTTP_405
+    assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
     resp = api.requests.get("http://;/person/Hi")
     assert resp.text == "GET person - Hi, world!"
     assert resp.headers["X-Life"] == "41"
-    assert resp.status_code == api.status_codes.HTTP_201
+    assert resp.status_code == api.status.HTTP_201_CREATED
 
     resp = api.requests.post("http://;/person/Hi")
     assert resp.text == "POST person - Hi, world!"
     assert resp.headers["X-Life"] == "42"
-    assert resp.status_code == api.status_codes.HTTP_200
+    assert resp.status_code == api.status.HTTP_200_OK
 
     resp = api.requests.put("http://;/person/Hi")
     assert resp.text == "any person - Hi, world!"
     assert resp.headers["X-Life"] == "43"
-    assert resp.status_code == api.status_codes.HTTP_200
+    assert resp.status_code == api.status.HTTP_200_OK
 
 
 def test_pydantic_response_schema_serialization(api):
@@ -1242,11 +1243,11 @@ def test_pydantic_response_schema_serialization(api):
 
     data = {"title": "Learning dyne", "price": 39.99}
     response = api.requests.post(api.url_for(create_book), json=data)
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"id": 3, "price": 39.99, "title": "Learning dyne"}
 
     response = api.requests.get(api.url_for(all_books))
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     rs = response.json()
     assert len(rs) == 3
     ids = sorted([book["id"] for book in rs])
@@ -1312,11 +1313,11 @@ def test_marshmallow_response_schema_serialization(api):
 
     data = {"title": "Python Programming", "price": 11.99}
     response = api.requests.post(api.url_for(create_book), json=data)
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"id": 3, "price": 11.99, "title": "Python Programming"}
 
     response = api.requests.get(api.url_for(all_books))
-    assert response.status_code == api.status_codes.HTTP_200
+    assert response.status_code == api.status.HTTP_200_OK
     rs = response.json()
     assert len(rs) == 3
     ids = sorted([book["id"] for book in rs])

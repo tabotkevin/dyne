@@ -5,11 +5,11 @@ import traceback
 from collections import defaultdict
 
 from starlette.concurrency import run_in_threadpool
-from starlette.exceptions import HTTPException
 from starlette.middleware.wsgi import WSGIMiddleware
 from starlette.websockets import WebSocket, WebSocketClose
 
-from . import status_codes
+from . import status
+from .exceptions import abort
 from .formats import get_formats
 from .models import Request, Response
 
@@ -122,10 +122,10 @@ class Route(BaseRoute):
                 views.append(view)
             except AttributeError:
                 if on_request is None:
-                    raise HTTPException(status_code=status_codes.HTTP_405)
+                    abort(status.HTTP_405_METHOD_NOT_ALLOWED)
         else:
             if request.method not in [method.lower() for method in self.methods]:
-                raise HTTPException(status_code=status_codes.HTTP_405) from None
+                abort(status.HTTP_405_METHOD_NOT_ALLOWED)
             views.append(self.endpoint)
 
         for view in views:
@@ -138,7 +138,7 @@ class Route(BaseRoute):
                 await run_in_threadpool(view, request, response, **path_params)
 
         if response.status_code is None:
-            response.status_code = status_codes.HTTP_200
+            response.status_code = status.HTTP_200_OK
 
         await response(scope, receive, send)
 
@@ -295,7 +295,7 @@ class Router:
             await websocket_close(receive, send)
             return
 
-        raise HTTPException(status_code=status_codes.HTTP_404)
+        abort(status.HTTP_404_NOT_FOUND)
 
     def _resolve_route(self, scope):
         for route in self.routes:

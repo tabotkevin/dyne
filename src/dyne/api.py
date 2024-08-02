@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.testclient import TestClient
 
-from . import status_codes
+from . import status
 from .background import BackgroundQueue
 from .ext.schema import Schema as OpenAPISchema
 from .formats import get_formats
@@ -33,7 +33,7 @@ class API:
     :param openapi_theme: OpenAPI documentation theme, must be one of ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
     """
 
-    status_codes = status_codes
+    status = status
 
     def __init__(
         self,
@@ -220,11 +220,16 @@ class API:
             with open(index, "r") as f:
                 resp.html = f.read()
         else:
-            resp.status_code = status_codes.HTTP_404
+            resp.status_code = status.HTTP_404_NOT_FOUND
             resp.text = "Not found."
 
     def redirect(
-        self, resp, location, *, set_text=True, status_code=status_codes.HTTP_301
+        self,
+        resp,
+        location,
+        *,
+        set_text=True,
+        status_code=status.HTTP_301_MOVED_PERMANENTLY,
     ):
         """Redirects a given response to a given location.
         :param resp: The Response to mutate.
@@ -386,7 +391,7 @@ class API:
             async def wrapper(req, resp, *args, **kwargs):
                 data = await req.validate(schema, location=location, unknown=unknown)
                 if "errors" in data:
-                    resp.status_code = 400
+                    resp.status_code = status.HTTP_400_BAD_REQUEST
                     resp.media = data
                     return
 
@@ -435,7 +440,7 @@ class API:
 
         return self._parse_request(schema, location=location, key=key, unknown=unknown)
 
-    def output(self, schema, status_code=200, headers=None):
+    def output(self, schema, status_code=status.HTTP_200_OK, headers=None):
         """A decorator for serializing response dictionaries or SQLAlchemy objects.
            Supports both Pydantic and Marshmallow.
 
@@ -495,13 +500,13 @@ class API:
                     raise TypeError("You must set `resp.obj` when using @output")
 
                 if isinstance(obj, (DeclarativeBase, Query, list)):
-                    if hasattr(schema, "from_orm"):
+                    if hasattr(schema, "from_orm"):  # pydantic
                         resp.media = (
                             [schema.from_orm(o).model_dump() for o in obj]
                             if isinstance(obj, (Query, list))
                             else schema.from_orm(obj).model_dump()
                         )
-                    else:
+                    else:  # marshmallow
                         resp.media = (
                             schema(many=True).dump(obj)
                             if isinstance(obj, (Query, list))
