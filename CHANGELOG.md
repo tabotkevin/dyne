@@ -9,4 +9,4 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- Update requirements to support python 3.8
+- Update requirements to support python 3.11
