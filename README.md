@@ -1,5 +1,6 @@
-## A light weight Python async framework with batteries included.
+## A light weight Python async framework with batteries included
 
+[![Build](https://github.com/tabotkevin/dyne/actions/workflows/build.yaml/badge.svg)](https://github.com/tabotkevin/dyne/actions/workflows/build.yaml)
 [![Documentation Status](https://readthedocs.org/projects/dyneapi/badge/?version=latest)](https://dyneapi.readthedocs.io/en/latest/?badge=latest)
 [![image](https://img.shields.io/pypi/v/dyne.svg)](https://pypi.org/project/dyne/)
 [![image](https://img.shields.io/pypi/l/dyne.svg)](https://pypi.org/project/dyne/)
@@ -23,8 +24,7 @@ if __name__ == "__main__":
 
 ```
 
-Powered by [Starlette](https://www.starlette.io/). That `async` declaration is optional.
-[View documentation](https://dyneapi.readthedocs.io).
+Powered by [Starlette](https://www.starlette.io/). [View documentation](https://dyneapi.readthedocs.io).
 
 This gets you a ASGI app, with a production static files server pre-installed, jinja2
 templating (without additional imports), and a production webserver based on uvloop,
@@ -40,7 +40,7 @@ for more details on features available in dyne.
 
 Install the stable release:
 
-    $ pip install dyne
+    pip install dyne
 
 ## The Basic Idea
 

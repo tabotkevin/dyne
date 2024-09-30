@@ -6,10 +6,12 @@
 A light weight Python async framework with batteries included.
 =================================
 
-|Build Status| |image1| |image2| |image3| |image4| |image5|
+|Build Status| |documentation| |image1| |image2| |image3| |image4| |image5|
 
-.. |Build Status| image:: https://github.com/tabotkevin/dyne/actions/workflows/tests.yaml/badge.svg
-   :target: https://github.com/tabotkevin/dyne/actions
+.. image:: https://github.com/tabotkevin/dyne/actions/workflows/build.yaml/badge.svg
+   :target: https://github.com/tabotkevin/dyne/actions/workflows/build.yaml
+.. image:: https://readthedocs.org/projects/dyneapi/badge/?version=latest
+   :target: https://dyneapi.readthedocs.io/en/latest/?badge=latest
 .. |image1| image:: https://img.shields.io/pypi/v/dyne.svg
    :target: https://pypi.org/project/dyne/
 .. |image2| image:: https://img.shields.io/pypi/l/dyne.svg
@@ -34,7 +36,7 @@ A light weight Python async framework with batteries included.
    if __name__ == "__main__":
        api.run()
 
-Powered by `Starlette <https://www.starlette.io/>`_. That ``async`` declaration is optional.
+Powered by `Starlette <https://www.starlette.io/>`_.
 
 This gets you a ASGI app, with a production static files server
 (`WhiteNoise <http://whitenoise.evans.io/en/stable/>`_)
