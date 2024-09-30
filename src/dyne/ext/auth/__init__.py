@@ -101,7 +101,7 @@ class Backend(AuthenticationBackend):
                 status_code = None
                 try:
                     user = await self.authenticate(req)
-                except AuthenticationError as exc:
+                except AuthenticationError:
                     user = None
                 if user is None:
                     status_code = 401
