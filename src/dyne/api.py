@@ -528,6 +528,16 @@ class API:
 
         return decorator
 
+    def authenticate(self, backend, **kwargs):
+        def decorator(f):
+            roles = kwargs.get("role")
+            if not isinstance(roles, list):  # pragma: no cover
+                roles = [roles] if roles is not None else []
+            self._annotate(f, backend=backend, roles=roles)
+            return backend.login_required(**kwargs)(f)
+
+        return decorator
+
     def serve(self, *, address=None, port=None, **options):
         """Runs the application with uvicorn. If the ``PORT`` environment
         variable is set, requests will be served on that port automatically to all

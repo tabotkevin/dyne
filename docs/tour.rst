@@ -267,9 +267,9 @@ To include text descriptions for these responses, assign a description string to
 
 ::
 
-    import dune
+    import dyne
 
-    api = dune.API()
+    api = dyne.API()
 
 
     @api.route("/book", methods=["POST"])
@@ -306,6 +306,223 @@ Putting `@input`, `@output` and `@expect` together.
         session.commit()
 
         resp.obj = book
+
+
+Authentication
+--------------
+
+This part explains how to use authentication mechanisms in Dyne, including `BasicAuth`, `TokenAuth`, `DigestAuth`, and `MultiAuth`.
+It also includes examples of custom error handling and role-based authorization.
+
+Note: In the `verify_password`, `verify_token`, and `get_password` callbacks, you can return any object (or class) that represents your `user`. 
+The authenticated user can then be accessed through `request.state.user`.
+
+
+Basic Authentication
+--------------------
+`BasicAuth` verifies user credentials (username and password) and provides access to protected routes.
+
+Sample code:
+
+.. code-block:: python
+
+    import dyne
+    from dyne.ext.auth import BasicAuth
+
+    api = dyne.API()
+
+    users = dict(john="password", admin="password123")
+
+    basic_auth = BasicAuth()
+
+    @basic_auth.verify_password
+    async def verify_password(username, password):
+        if username in users and users.get(username) == password:
+            return username
+        return None
+
+    @basic_auth.error_handler
+    async def error_handler(req, resp, status_code=401):
+        resp.text = "Basic Custom Error"
+        resp.status_code = status_code
+
+    @api.route("/{greeting}")
+    @api.authenticate(basic_auth)
+    async def basic_greet(req, resp, *, greeting):
+        resp.text = f"{greeting}, {req.state.user}!"
+
+Make a basic authentication request:
+
+.. code-block:: bash
+
+    http -a john:password get http://127.0.0.1:5042/Hello
+
+
+Token Authentication
+--------------------
+`TokenAuth` authenticates requests based on bearer tokens.
+
+Sample code:
+
+.. code-block:: python
+
+    token_auth = TokenAuth()
+
+    @token_auth.verify_token
+    async def verify_token(token):
+        if token == "valid_token":
+            return "admin"
+        return None
+
+    @token_auth.error_handler
+    async def token_error_handler(req, resp, status_code=401):
+        resp.text = "Token Custom Error"
+        resp.status_code = status_code
+
+    @api.route("/{greeting}")
+    @api.authenticate(token_auth)
+    async def token_greet(req, resp, *, greeting):
+        resp.text = f"{greeting}, {req.state.user}!"
+
+Make a token authentication request:
+
+.. code-block:: bash
+
+    http get http://127.0.0.1:5042/Hi "Authorization: Bearer valid_token"
+
+
+Digest Authentication
+---------------------
+`DigestAuth` is a more secure method than Basic Auth for protecting routes.
+
+Sample code:
+
+.. code-block:: python
+
+    digest_auth = DigestAuth()
+
+    @digest_auth.get_password
+    async def get_password(username):
+        return users.get(username)
+
+    @digest_auth.error_handler
+    async def digest_error_handler(req, resp, status_code=401):
+        resp.text = "Digest Custom Error"
+        resp.status_code = status_code
+
+    @api.route("/{greeting}")
+    @api.authenticate(digest_auth)
+    async def digest_greet(req, resp, *, greeting):
+        resp.text = f"{greeting}, {req.state.user}!"
+
+Make a digest authentication request:
+
+.. code-block:: bash
+
+    http --auth-type=digest -a john:password get http://127.0.0.1:5042/Hola
+
+You can also use precomputed hashes for passwords:
+
+Note: Make sure the `realm` is the same as that used in the `DigestAuth` backend
+
+.. code-block:: python
+
+    @digest_auth.get_password
+    async def get_ha1_pw(username):
+        password = users.get(username)
+        realm = "Authentication Required"
+        return hashlib.md5(f"{username}:{realm}:{password}".encode("utf-8")).hexdigest()
+
+
+Custom `Nonce` and `Opaque` generation and verification callbacks:
+
+Sample code:
+
+.. code-block:: python
+
+    my_nonce = "37e9292aecca04bd7e834e3e983f5d4"
+    my_opaque = "f8bf1725d7a942c6511cc7ed38c169fo"
+
+    @digest_auth.generate_nonce
+    async def gen_nonce(request):
+        return my_nonce
+
+    @digest_auth.verify_nonce
+    async def ver_nonce(request, nonce):
+        return hmac.compare_digest(my_nonce, nonce)
+
+    @digest_auth.generate_opaque
+    async def gen_opaque(request):
+        return my_opaque
+
+    @digest_auth.verify_opaque
+    async def ver_opaque(request, opaque):
+        return hmac.compare_digest(my_opaque, opaque)
+
+
+Role-Based Authorization
+------------------------
+You can restrict routes to specific roles using role-based authorization with any of the backends.
+
+Sample code using the `basic_auth` backends:
+
+.. code-block:: python
+
+    users = dict(john="password", admin="password123")
+    roles = {"john": "user", "admin": ["user", "admin"]}
+
+    @basic_auth.get_user_roles
+    async def get_user_roles(user):
+        return roles.get(user)
+
+    # Both `john` and `admin` can access this ruote
+    @api.route("/welcome")
+    @api.authenticate(basic_auth, role="user")
+    async def welcome(req, resp):
+        resp.text = f"welcome back {req.state.user}!"
+
+
+    # Only `admin` can access this ruote
+    @api.route("/admin")
+    @api.authenticate(basic_auth, role="admin")
+    async def admin(req, resp):
+        resp.text = f"Hello {req.state.user}, you are an admin!"
+
+Make a role-based  authentication request:
+
+.. code-block:: bash
+
+    http -a john:password get http://127.0.0.1:5042/welcome
+    http -a admin:password123 get http://127.0.0.1:5042/admin
+
+
+Multi Authentication
+--------------------
+`MultiAuth` allows for multiple authentication schemes, enabling a flexible authentication strategy.
+
+Sample code:
+
+.. code-block:: python
+
+    multi_auth = MultiAuth(digest_auth, token_auth, basic_auth)
+
+    @api.route("/{greeting}")
+    @api.authenticate(multi_auth)
+    async def multi_greet(req, resp, *, greeting):
+        resp.text = f"{greeting}, {req.state.user}!"
+
+Make a request using any of the configured authentication schemes:
+
+.. code-block:: bash
+
+    # Basic Auth
+    http -a john:password get http://127.0.0.1:5042/Hi
+
+    # Token Auth
+    http get http://127.0.0.1:5042/Hi "Authorization: Bearer valid_token"
+
+    # Digest Auth
+    http --auth-type=digest -a john:password get http://127.0.0.1:5042/Hi
 
 
 Mount a WSGI / ASGI Apps (e.g. Flask, Starlette,...)
@@ -370,14 +587,14 @@ Using Cookie-Based Sessions
 
 dyne has built-in support for cookie-based sessions. To enable cookie-based sessions, simply add something to the ``resp.session`` dictionary::
 
-    >>> resp.session['username'] = 'kennethreitz'
+    >>> resp.session['username'] = 'john'
 
 A cookie called ``dyne-Session`` will be set, which contains all the data in ``resp.session``. It is signed, for verification purposes.
 
 You can easily read a Request's session data, that can be trusted to have originated from the API::
 
     >>> req.session
-    {'username': 'kennethreitz'}
+    {'username': 'john'}
 
 **Note**: if you are using this in production, you should pass the ``secret_key`` argument to ``API(...)``::
 
