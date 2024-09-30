@@ -6,11 +6,11 @@
 A light weight Python async framework with batteries included.
 =================================
 
-|Build Status| |documentation| |image1| |image2| |image3| |image4| |image5|
+|Build Status| |Documentation| |image1| |image2| |image3| |image4| |image5|
 
-.. image:: https://github.com/tabotkevin/dyne/actions/workflows/build.yaml/badge.svg
+.. |Build Status| image:: https://github.com/tabotkevin/dyne/actions/workflows/build.yaml/badge.svg
    :target: https://github.com/tabotkevin/dyne/actions/workflows/build.yaml
-.. image:: https://readthedocs.org/projects/dyneapi/badge/?version=latest
+.. |Documentation| image:: https://readthedocs.org/projects/dyneapi/badge/?version=latest
    :target: https://dyneapi.readthedocs.io/en/latest/?badge=latest
 .. |image1| image:: https://img.shields.io/pypi/v/dyne.svg
    :target: https://pypi.org/project/dyne/
