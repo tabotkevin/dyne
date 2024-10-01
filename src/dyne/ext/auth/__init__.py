@@ -11,7 +11,7 @@ class Backend(AuthenticationBackend):
     def __init__(self, scheme=None, realm=None, header=None):
         self.scheme = scheme
         self.realm = realm or "Authentication Required"
-        self.header = header
+        self.header = header or "Authorization"
         self.get_user_roles_callback = None
 
         async def default_auth_error(req, resp, status_code):
@@ -25,38 +25,26 @@ class Backend(AuthenticationBackend):
         return f
 
     async def auth_header(self, request):
-        return '{0} realm="{1}"'.format(self.scheme, self.realm)
+        return f'{self.scheme} realm="{self.realm}"'
 
     def get_credentials(self, request):
-        if "Authorization" not in request.headers:
+        if self.header not in request.headers:
             raise AuthenticationError("No Authorization headers")
 
-        auth = request.headers["Authorization"]
+        auth = request.headers[self.header]
         try:
             scheme, credentials = auth.split(maxsplit=1)
-            if scheme.lower() != self.scheme.lower():
+            if scheme != self.scheme:
                 raise AuthenticationError("Incorrect Authorization scheme")
             return credentials
         except ValueError:
             raise AuthenticationError("Bad Authorization headers")
-
-    def is_compatible_auth(self, headers):
-        if self.header is None or self.header == "Authorization":
-            try:
-                scheme, _ = headers.get("Authorization", "").split(None, 1)
-            except ValueError:
-                # malformed Authorization header
-                return False
-            return scheme == self.scheme
-        else:
-            return self.header in headers
 
     def error_handler(self, f):
         @wraps(f)
         async def decorated(req, res, *args, **kwargs):
             await f(req, res, *args, **kwargs)
             if res.status_code == 200:
-                # if user didn't set status code, use 401
                 res.status_code = 401
             if "WWW-Authenticate" not in res.headers.keys():
                 res.headers["WWW-Authenticate"] = await self.auth_header(req)
@@ -121,8 +109,8 @@ class Backend(AuthenticationBackend):
 
 
 class TokenAuth(Backend):
-    def __init__(self, scheme="Bearer", realm=None):
-        super(TokenAuth, self).__init__(scheme, realm)
+    def __init__(self, scheme="Bearer", realm=None, header=None):
+        super(TokenAuth, self).__init__(scheme, realm, header=header)
 
         async def default_verify_token(token):
             return None
@@ -310,9 +298,16 @@ class DigestAuth(Backend):
 
 
 class MultiAuth(object):
-    def __init__(self, main_auth, *args):
-        self.main_auth = main_auth
-        self.additional_auth = args
+    def __init__(self, *backends):
+        assert backends, "At least one backend must be provided."
+        self.backends = backends
+
+    def is_compatible(self, headers, backend):
+        try:
+            scheme, _ = headers.get(backend.header, "").split(None, 1)
+        except ValueError:
+            return False
+        return scheme == backend.scheme
 
     def login_required(self, f=None, role=None, optional=None):
         if f is not None and (
@@ -323,15 +318,14 @@ class MultiAuth(object):
         def decorator(f):
             @wraps(f)
             async def decorated(request, response, *args, **kwargs):
-                selected_auth = self.main_auth
-                if not self.main_auth.is_compatible_auth(request.headers):
-                    for auth in self.additional_auth:
-                        if auth.is_compatible_auth(request.headers):
-                            selected_auth = auth
-                            break
-                return await selected_auth.login_required(role=role, optional=optional)(
-                    f
-                )(request, response, *args, **kwargs)
+                selected = self.backends[0]
+                for backend in self.backends:
+                    if self.is_compatible(request.headers, backend):
+                        selected = backend
+                        break
+                return await selected.login_required(role=role, optional=optional)(f)(
+                    request, response, *args, **kwargs
+                )
 
             return decorated
 
