@@ -17,6 +17,11 @@ _CONVERTORS = {
     "int": (int, r"\d+"),
     "str": (str, r"[^/]+"),
     "float": (float, r"\d+(.\d+)?"),
+    "path": (str, r".*"),
+    "uuid": (
+        str,
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+    ),
 }
 
 PARAM_RE = re.compile("{([a-zA-Z_][a-zA-Z0-9_]*)(:[a-zA-Z_][a-zA-Z0-9_]*)?}")

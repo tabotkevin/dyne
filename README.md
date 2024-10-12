@@ -8,20 +8,33 @@
 [![image](https://img.shields.io/github/contributors/tabotkevin/dyne.svg)](https://github.com/tabotkevin/dyne/graphs/contributors)
 
 ```python
-
 import dyne
 
 api = dyne.API()
 
+@api.route("/create", methods=["POST"])
+@api.authenticate(basic_auth, role="user")
+@api.input(BookCreateSchema, location="form")
+@api.output(BookSchema)
+@api.expect(
+    {
+        401: "Invalid credentials",
+    }
+)
+async def create(req, resp, *, data):
+    """Create book"""
 
-@api.route("/{greeting}")
-async def greet_world(req, resp, *, greeting):
-    resp.text = f"{greeting}, world!"
+    image = data.pop("image")
+    await image.save(image.filename)  # File already validated for extension and size.
 
+    book = Book(**data, cover=image.filename)
+    session.add(book)
+    session.commit()
+
+    resp.obj = book
 
 if __name__ == "__main__":
-    api.run()
-
+  api.run()
 ```
 
 Powered by [Starlette](https://www.starlette.io/). [View documentation](https://dyneapi.readthedocs.io).

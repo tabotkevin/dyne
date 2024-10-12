@@ -151,27 +151,110 @@ Here, we'll process our data in the background, while responding immediately to 
 A ``POST`` request to ``/incoming`` will result in an immediate response of ``{'success': true}``.
 
 
-Here's a sample code to post a file with background::
+File Upload
+-----------
+
+Dyne provides two ways to handle file uploads: using the `@api.input` decorator with either Marshmallow or Pydantic schemas, 
+or via native file upload support.
+
+1. Uploading Files with `@api.input` Decorator
+----------------------------------------------
+
+You can define file upload logic using Marshmallow or Pydantic schemas. 
+Each approach offers different features for handling file validation and input processing.
+
+a. Uploading with a `Marshmallow` Schema
+----------------------------------------
+
+When using a Marshmallow schema, you need to utilize the `FileField` class. 
+This class provides built-in validation for file extensions and file size, 
+ensuring that uploaded files meet specified constraints.
+
+**Example:**
+
+.. code-block:: python
+
+    from marshmallow import Schema, fields
+    from dyne.fields.marshmallow import FileField
+
+    class UploadSchema(Schema):
+        description = fields.Str()
+        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
+
+    @api.input(UploadSchema, location="form")
+    async def upload(req, resp, *, data):
+        image = data.pop("image")
+        await image.save(image.filename)  # The image is already validated for extension and size
+
+        resp.media = {"success": True}
+
+
+b. Uploading with a `Pydantic` Schema
+-------------------------------------
+
+When using a Pydantic schema, you can use the `File` class. While this approach is similar to the Marshmallow version, 
+it does not include built-in support for file extension and size validation. 
+If validation is needed, it must be handled manually.
+
+**Note:** Remember to set `from_attributes = True` in the schema's `Config` to enable proper handling of file uploads.
+
+**Example:**
+
+.. code-block:: python
+
+    from pydantic import BaseModel, Field
+    from dyne.fields.pydantic import File
+
+    class UploadSchema(BaseModel):
+        description: str
+        image: File = Field(...)
+
+        class Config:
+            from_attributes = True
+
+    @api.input(UploadSchema, location="form")
+    async def upload(req, resp, *, data):
+        image = data.pop("image")
+        await image.save(image.filename)  # Perform validation before saving
+
+        resp.media = {"success": True}
+
+
+2. Native File Upload Support
+-----------------------------
+
+Dyne also offers native support for file uploads without requiring schemas. 
+This approach allows for easy handling of files, including background tasks for processing the uploaded content.
+
+**Example:**
+
+.. code-block:: python
 
     @api.route("/")
     async def upload_file(req, resp):
 
         @api.background.task
         def process_data(data):
-            f = open('./{}'.format(data['file']['filename']), 'w')
-            f.write(data['file']['content'].decode('utf-8'))
-            f.close()
+            with open('./{}'.format(data['file']['filename']), 'w') as f:
+                f.write(data['file']['content'].decode('utf-8'))
 
         data = await req.media(format='files')
         process_data(data)
-
         resp.media = {'success': 'ok'}
 
-You can send a file easily with requests::
 
-	  import requests
+You can send a file easily with `requests`.
 
-	  data = {'file': ('hello.txt', 'hello, world!', "text/plain")}
-	  r = requests.post('http://127.0.0.1:8210/file', files=data)
+**Example:**
 
-	  print(r.text)
+.. code-block:: python
+
+    import requests
+
+    data = {'file': ('hello.txt', 'hello, world!', 'text/plain')}
+    r = requests.post('http://127.0.0.1:8210/file', files=data)
+
+    print(r.text)
+
+This sends a file named `hello.txt` with the content `"hello, world!"` to the specified API endpoint.
+
