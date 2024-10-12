@@ -1,6 +1,5 @@
 import functools
 import inspect
-import io
 from http.cookies import SimpleCookie
 from urllib.parse import parse_qs
 

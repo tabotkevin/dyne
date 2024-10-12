@@ -8,7 +8,7 @@ try:
 except ImportError:  # pragma: no cover
     _AnnotatedAlias = None
 
-from apispec import APISpec, yaml_utils
+from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
 from dyne import status
