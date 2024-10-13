@@ -29,9 +29,26 @@ A light weight Python async framework with batteries included.
 
    api = dyne.API()
 
-   @api.route("/{greeting}")
-   async def greet_world(req, resp, *, greeting):
-       resp.text = f"{greeting}, world!"
+   @api.route("/create", methods=["POST"])
+   @api.authenticate(basic_auth, role="user")
+   @api.input(BookCreateSchema, location="form")
+   @api.output(BookSchema)
+   @api.expect(
+       {
+           401: "Invalid credentials",
+       }
+   )
+   async def create(req, resp, *, data):
+       """Create book"""
+
+       image = data.pop("image")
+       await image.save(image.filename)  # File already validated for extension and size.
+
+       book = Book(**data, cover=image.filename)
+       session.add(book)
+       session.commit()
+
+       resp.obj = book
 
    if __name__ == "__main__":
        api.run()
