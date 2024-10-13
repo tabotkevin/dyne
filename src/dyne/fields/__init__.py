@@ -1,5 +1,5 @@
 import os
-import typing
+from typing import BinaryIO, Optional
 
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
@@ -10,11 +10,11 @@ class UploadFile(BaseFile):
 
     def __init__(
         self,
-        file: typing.BinaryIO,
+        file: BinaryIO,
         *,
-        size: int | None = None,
-        filename: str | None = None,
-        headers: Headers | None = None,
+        size: Optional[int] = None,
+        filename: Optional[str] = None,
+        headers: Optional[Headers] = None,
     ) -> None:
         super().__init__(file, size=size, filename=filename, headers=headers)
         if not self.size:
