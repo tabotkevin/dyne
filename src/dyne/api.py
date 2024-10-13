@@ -2,6 +2,8 @@ import os
 from functools import wraps
 from pathlib import Path
 
+import marshmallow as ma
+import pydantic as pd
 import uvicorn
 from sqlalchemy.orm import DeclarativeBase, Query
 from starlette.middleware.cors import CORSMiddleware
@@ -35,6 +37,9 @@ class API:
 
     status = status
 
+    class State:
+        pass
+
     def __init__(
         self,
         *,
@@ -45,7 +50,7 @@ class API:
         terms_of_service=None,
         contact=None,
         license=None,
-        openapi="3.0.2",
+        openapi="3.0.1",
         openapi_route="/schema.yml",
         static_dir="static",
         static_route="/static",
@@ -99,6 +104,8 @@ class API:
 
         self.default_endpoint = None
         self.app = ExceptionMiddleware(self.router, debug=debug)
+        # A store for applications to retain data for the entire lifecycle.
+        self.state = API.State()
         self.add_middleware(GZipMiddleware)
 
         if self.hsts_enabled:
@@ -381,12 +388,22 @@ class API:
            marshmallow schema's ``load`` method.
         """
 
+        if location == "params":
+            location = "query"
+
         if not key:
             key = location
-            if location == "media":
+            if location in ["media", "form"]:
                 key = "data"
 
         def decorator(f):
+            if not hasattr(f, "_spec") or f._spec.get("args") is None:
+                self._annotate(f, args=[])
+            if location not in ["media", "form"]:
+                f._spec["args"].append((schema, location))
+            else:
+                self._annotate(f, input=(schema, location))
+
             @wraps(f)
             async def wrapper(req, resp, *args, **kwargs):
                 data = await req.validate(schema, location=location, unknown=unknown)
@@ -437,10 +454,11 @@ class API:
 
             r = api.requests.post("http://;/create", json={"price": 9.99, "title": "Pydantic book"})
         """
-
         return self._parse_request(schema, location=location, key=key, unknown=unknown)
 
-    def output(self, schema, status_code=status.HTTP_200_OK, headers=None):
+    def output(
+        self, schema, status_code=status.HTTP_200_OK, headers=None, description=None
+    ):
         """A decorator for serializing response dictionaries or SQLAlchemy objects.
            Supports both Pydantic and Marshmallow.
 
@@ -491,36 +509,60 @@ class API:
         """
 
         def decorator(f):
+            self._annotate(
+                f,
+                output=schema,
+                status_code=status_code,
+                headers=headers,
+                description=description,
+            )
+
             @wraps(f)
             async def wrapper(req, resp, *args, **kwargs):
+                nonlocal status_code
                 await f(req, resp, *args, **kwargs)
-                obj = resp.obj
 
-                if obj is None:
+                if not hasattr(resp, "obj"):
                     raise TypeError("You must set `resp.obj` when using @output")
 
+                obj = resp.obj
+                if obj is None:
+                    obj = {}
+
                 if isinstance(obj, (DeclarativeBase, Query, list)):
-                    if hasattr(schema, "from_orm"):  # pydantic
-                        resp.media = (
-                            [schema.model_validate(o).model_dump() for o in obj]
-                            if isinstance(obj, (Query, list))
-                            else schema.model_validate(obj).model_dump()
-                        )
-                    else:  # marshmallow
-                        resp.media = (
-                            schema(many=True).dump(obj)
-                            if isinstance(obj, (Query, list))
-                            else schema().dump(obj)
-                        )
+                    try:
+                        if hasattr(schema, "from_orm"):  # pydantic
+                            resp.media = (
+                                [schema.model_validate(o).model_dump() for o in obj]
+                                if isinstance(obj, (Query, list))
+                                else schema.model_validate(obj).model_dump()
+                            )
+                        else:  # marshmallow
+                            resp.media = (
+                                schema(many=True).dump(obj)
+                                if isinstance(obj, (Query, list))
+                                else schema().dump(obj)
+                            )
+
+                    except (ma.ValidationError, pd.ValidationError) as e:
+                        status_code = 400
+                        resp.media = {
+                            "errors": (
+                                {
+                                    k: str(v)
+                                    for k, v in e.errors()[0].items()
+                                    if k != "input"
+                                }
+                                if isinstance(e, pd.ValidationError)
+                                else e.messages
+                            )
+                        }
                 elif isinstance(obj, dict):
                     resp.media = obj
                 else:
-                    raise TypeError("Return type is not serializable")
+                    resp.media = dict(errors="Returned obj is not serializable")
 
                 resp.status_code = status_code
-
-                if headers:
-                    resp.headers.update(headers)
 
                 return
 
@@ -537,6 +579,27 @@ class API:
             return backend.login_required(**kwargs)(f)
 
         return decorator
+
+    def webhook(self, method="GET", blueprint=None, endpoint_name=None):
+        def decorator(f):
+            self._annotate(
+                f,
+                webhook={
+                    "blueprint": blueprint,
+                    "endpoint_name": endpoint_name,
+                    "methods": [method],
+                },
+            )
+            return f
+
+        if callable(method) and blueprint is None and endpoint_name is None:
+            # invoked as a decorator without arguments
+            f = method
+            method = "GET"
+            return decorator(f)
+        else:
+            # invoked as a decorator with arguments
+            return decorator
 
     def serve(self, *, address=None, port=None, **options):
         """Runs the application with uvicorn. If the ``PORT`` environment

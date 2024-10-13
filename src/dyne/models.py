@@ -154,6 +154,10 @@ class Request:
         return rfc3986.urlparse(self.full_url)
 
     @property
+    def base_url(self):
+        return str(self._starlette.base_url)
+
+    @property
     def cookies(self):
         """The cookies sent in the Request, as a dictionary."""
         if self._cookies is None:
@@ -246,6 +250,7 @@ class Request:
         if format is None:
             format = "yaml" if "yaml" in self.mimetype or "" else "json"
             format = "form" if "form" in self.mimetype or "" else format
+            format = "files" if "multipart" in self.mimetype or "" else format
 
         if format in self.formats:
             return await self.formats[format](self)
@@ -264,10 +269,10 @@ class Request:
 
         data = (
             self.headers
-            if location == "headers"
+            if location.startswith("header")
             else (
                 self.cookies
-                if location == "cookies"
+                if location.startswith("cookie")
                 else (
                     self.params.normalize()
                     if location in ["params", "query"]
@@ -276,7 +281,11 @@ class Request:
             )
         )
 
-        if not unknown and location in ["headers", "cookies"]:
+        if (
+            not unknown
+            and location.startswith("header")
+            or location.startswith("cookie")
+        ):
             unknown = ma.EXCLUDE
 
         try:
@@ -285,11 +294,13 @@ class Request:
             elif issubclass(schema, pd.BaseModel):  # pydantic.
                 self._data = schema(**data).model_dump()
             else:
-                self._data = dict(errors=f"Unsupported schema type {schema.__name__}")
+                self._data = dict(errors="Unsupported schema")
         except (ma.ValidationError, pd.ValidationError) as e:
             self._data = {
                 "errors": (
-                    e.errors() if isinstance(e, pd.ValidationError) else e.messages
+                    {k: str(v) for k, v in e.errors()[0].items() if k != "input"}
+                    if isinstance(e, pd.ValidationError)
+                    else e.messages
                 )
             }
 

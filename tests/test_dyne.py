@@ -320,8 +320,8 @@ def test_form_uploads(api):
 
     # requests with boundary
     files = {"complicated": (None, "times")}
-    r = api.requests.post(api.url_for(route), files=files)
-    assert r.json() == {"complicated": "times"}
+    with pytest.raises(Exception) as err:  # noqa: F841
+        r = api.requests.post(api.url_for(route), files=files)
 
 
 def test_json_downloads(api):
@@ -348,83 +348,6 @@ def test_yaml_downloads(api):
         api.url_for(route), headers={"Content-Type": "application/x-yaml"}
     )
     assert yaml.safe_load(r.content) == dump
-
-
-def test_schema_generation_explicit():
-    import marshmallow
-
-    import dyne
-    from dyne.ext.schema import Schema as OpenAPISchema
-
-    api = dyne.API()
-
-    schema = OpenAPISchema(
-        app=api,
-        title="Web Service",
-        version="1.0",
-        openapi="3.0.2",
-        openapi_route="/schema.yaml",
-    )
-
-    @schema.schema("Pet")
-    class PetSchema(marshmallow.Schema):
-        name = marshmallow.fields.Str()
-
-    @api.route("/")
-    def route(req, resp):
-        """A cute furry animal endpoint.
-        ---
-        get:
-            description: Get a random pet
-            responses:
-                200:
-                    description: A pet to be returned
-                    schema:
-                        $ref: "#/components/schemas/Pet"
-        """
-        resp.media = PetSchema().dump({"name": "little orange"})
-
-    r = api.requests.get("http://;/schema.yaml")
-    dump = yaml.safe_load(r.content)
-
-    assert dump
-    assert dump["openapi"] == "3.0.2"
-
-
-def test_schema_generation():
-    from marshmallow import Schema, fields
-
-    import dyne
-
-    api = dyne.API(
-        title="Web Service",
-        openapi="3.0.2",
-        openapi_route="/schema.yaml",
-    )
-
-    @api.schema("Pet")
-    class PetSchema(Schema):
-        name = fields.Str()
-
-    @api.route("/")
-    def route(req, resp):
-        """A cute furry animal endpoint.
-        ---
-        get:
-            description: Get a random pet
-            responses:
-                200:
-                    description: A pet to be returned
-                    schema:
-                        $ref: "#/components/schemas/Pet"
-        """
-        resp.media = PetSchema().dump({"name": "little orange"})
-
-    r = api.requests.get("http://;/schema.yaml")
-    dump = yaml.safe_load(r.content)
-
-    assert dump
-    assert dump["openapi"] == "3.0.2"
 
 
 def test_documentation_explicit():

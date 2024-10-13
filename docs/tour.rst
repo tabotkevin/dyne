@@ -1,6 +1,100 @@
 Feature Tour
 ============
 
+Introduction
+------------
+
+Dyne brings simplicity and elegance to API development, offering built-in features such as:
+
+- **Authentication**: Support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
+- **Input Validation**: The `@api.input` decorator makes validating request bodies easy.
+- **Response Serialization**: Use the `@api.output` decorator to serialize responses automatically.
+- **OpenAPI Documentation**: Full self-generated OpenAPI documentation with seamless integration for both `Pydantic` and `Marshmallow` schemas.
+
+Here's how you can get started:
+
+::
+
+    api = dyne.API()
+
+    # Basic Authentication Example
+    users = dict(john="password", admin="password123")
+    roles = {"john": "user", "admin": ["user", "admin"]}
+
+    basic_auth = BasicAuth()
+
+    @basic_auth.verify_password
+    async def verify_password(username, password):
+        if username in users and users.get(username) == password:
+            return username
+        return None
+
+    @basic_auth.error_handler
+    async def error_handler(req, resp, status_code=401):
+        resp.text = "Invalid credentials"
+        resp.status_code = status_code
+
+    @basic_auth.get_user_roles
+    async def get_user_roles(user):
+        return roles.get(user)
+
+### Example: Book Creation API
+
+This example demonstrates a clean and minimal API endpoint for creating a new book. The API supports file uploads with built-in validation for file extensions and file sizes.
+
+**SQLAlchemy Model:**
+
+.. code-block:: python
+
+    class Book(Base):
+        __tablename__ = "books"
+        id = Column(Integer, primary_key=True)
+        price = Column(Float)
+        title = Column(String)
+        cover = Column(String, nullable=True)
+
+**Schemas: Marshmellow**
+
+.. code-block:: python
+
+    class BookSchema(Schema):
+        id = fields.Integer(dump_only=True)
+        price = fields.Float()
+        title = fields.Str()
+        cover = fields.Str()
+
+    class BookCreateSchema(Schema):
+        price = fields.Float()
+        title = fields.Str()
+        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)  # Built-in file validation
+
+**Endpoint:**
+
+.. code-block:: python
+
+    @api.route("/create", methods=["POST"])
+    @api.authenticate(basic_auth, role="user")
+    @api.input(BookCreateSchema, location="form")
+    @api.output(BookSchema)
+    @api.expect(
+        {
+            401: "Invalid credentials",
+        }
+    )
+    async def create(req, resp, *, data):
+        """Create book"""
+
+        image = data.pop("image")
+        await image.save(image.filename)  # File already validated
+
+        book = Book(**data, cover=image.filename)
+        session.add(book)
+        session.commit()
+
+        resp.obj = book
+
+This example demonstrates how Dyne simplifies API development by handling authentication, input validation, response serialization, and file handling with minimal code, while automatically generating OpenAPI documentation. 
+
 
 Class-Based Views
 -----------------
@@ -55,80 +149,13 @@ Visiting the endpoint will render a *GraphiQL* instance, in the browser.
 You can make use of dyne's Request and Response objects in your GraphQL resolvers through ``info.context['request']`` and ``info.context['response']``.
 
 
-OpenAPI Schema Support
-----------------------
-
-dyne comes with built-in support for OpenAPI / marshmallow and Pydantic::
-
-    import dyne
-    from marshmallow import Schema, fields
-
-    api = dyne.API()
-
-    @api.schema("Pet")
-    class PetSchema(Schema):
-        name = fields.Str()
-
-    @api.route("/")
-    def route(req, resp):
-        """A cute furry animal endpoint.
-        ---
-        get:
-            description: Get a random pet
-            responses:
-                200:
-                    description: A pet to be returned
-                    content:  
-                        application/json: 
-                            schema: 
-                                $ref: '#/components/schemas/Pet'                         
-        """
-        resp.media = PetSchema().dump({"name": "little orange"})
-
-::
-
-    >>> r = api.session().get("http://;/schema.yml")
-
-    >>> print(r.text)
-    components:
-      parameters: {}
-      responses: {}
-      schemas:
-        Pet:
-          properties:
-            name: {type: string}
-          type: object
-      securitySchemes: {}
-    info:
-      contact: {email: support@example.com, name: API Support, url: 'http://www.example.com/support'}
-      description: This is a sample server for a pet store.
-      license: {name: Apache 2.0, url: 'https://www.apache.org/licenses/LICENSE-2.0.html'}
-      termsOfService: http://example.com/terms/
-      title: Web Service
-      version: 1.0
-    openapi: 3.0.2
-    paths:
-      /:
-        get:
-          description: Get a random pet
-          responses:
-            200: {description: A pet to be returned, schema: $ref: "#/components/schemas/Pet"}
-    tags: []
-
-
-Interactive Documentation
--------------------------
-
-dyne can automatically supply API Documentation for you. Using the example above
-
-This will make ``/docs`` render interactive documentation for your API.
-
 
 Request validation
--------
+------------------
 Dyne provides built-in support for validating requests from various sources such as the request body (JSON, form, YAML), headers, cookies, and query parameters against Marshmallow and Pydantic schemas. This is done using the `@input` decorator, which specifies the location for validation. Supported locations are `media`, `headers`, `cookies`, and `query(params)`. 
 
 Optionally, you can provide a `key` variable, which acts as the name of the variable to be used in the endpoint. By default, the `key` is the value of the location, except for `media`, where the key is called `data` by default.
+
 
 ::
 
@@ -183,9 +210,12 @@ Optionally, you can provide a `key` variable, which acts as the name of the vari
     print(r.json())
 
 
-Response Deserialization
--------
-Dyne provides the functionality to deserialize SQLAlchemy objects or queries into JSON responses using Marshmallow or Pydantic schemas. This is achieved by using the `@output` decorator and setting `resp.obj` within the endpoint, which allows Dyne to deserialize the response as specified by the schema.
+Response Serialization
+----------------------
+Dyne provides the functionality to serialize SQLAlchemy objects or queries into JSON responses using Marshmallow or Pydantic schemas. This is achieved by using the `@output` decorator and setting `resp.obj` within the endpoint, which allows Dyne to deserialize the response as specified by the schema.
+
+This decorator also supports parameters such as `header`, which defines a schema for the response headers, and `description`, which can be used to provide a description in place of a status code for successful responses.
+
 
 ::
 
@@ -523,6 +553,102 @@ Make a request using any of the configured authentication schemes:
 
     # Digest Auth
     http --auth-type=digest -a john:password get http://127.0.0.1:5042/Hi
+
+
+Automatic OpenAPI Documentation Generation
+------------------------------------------
+
+Dyne includes built-in support for self-documentation through OpenAPI, with seamless integration for both `Marshmallow` and `Pydantic`.
+By using the `authenticate`, `input`, `output`, and `expect` decorators, you can easily generate self-documentation for your API endpoints, 
+covering authorization schemes, request bodies, responses, and errors.
+
+
+First, define the overview documentation string for your API. This string should provide a general description of your API.
+
+Example:
+
+::
+
+    doc = \"\"\" 
+    API Documentation
+
+    This module provides an interface to interact with the user management API. It allows for operations such as retrieving user information, creating new users, updating existing users, and deleting users.
+
+    Base URL:
+        https://api.example.com/v1
+
+    Authentication:
+        All API requests require an API key. Include your API key in the Authorization header as follows:
+        Authorization: Bearer YOUR_API_KEY
+
+    For further inquiries or support, please contact support@example.com.
+    \"\"\"
+
+Next, assign this `doc` string to the `api.state.doc` variable in your Dyne application
+
+::
+
+    api = dyne.API()
+    api.state.doc = doc
+
+
+After setting the overview documentation, you can use the following decorators to define the specific behavior of each API endpoint.
+
+- **`@api.authenticate`**: Specifies the authentication scheme for the endpoint.
+- **`@api.input`**: Defines the expected input schema for the request body.
+- **`@api.output`**: Specifies the output schema for the response.
+- **`@api.expect`**: Maps specific response codes to their descriptions, e.g., error responses.
+
+Example: Creating a Book
+Below is an example demonstrating how to use these decorators for an endpoint that creates a new book entry, including file upload with validation.
+
+::
+
+    from marshmallow import Schema, fields
+    from dyne.fields.mashmellow import FileField
+
+    class BookSchema(Schema):
+        id = fields.Integer(dump_only=True)
+        price = fields.Float()
+        title = fields.Str()
+        cover = fields.Str()
+
+    class BookCreateSchema(Schema):
+        price = fields.Float()
+        title = fields.Str()
+        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)  # Built-in File Extension and Size Validation.
+
+    @api.route("/create", methods=["POST"])
+    @api.authenticate(basic_auth, role="user")
+    @api.input(BookCreateSchema, location="form")
+    @api.output(BookSchema)
+    @api.expect(
+        {
+            401: "Invalid credentials",
+        }
+    )
+    async def create(req, resp, *, data):
+        """Create book"""
+        
+        image = data.pop("image")
+        await image.save(image.filename)  # The image is already validated for extension and size
+
+        book = Book(**data, cover=image.filename)
+        session.add(book)
+        session.commit()
+
+        resp.obj = book
+
+
+Once you have decorated your endpoint and set the overview documentation, visit the `/docs` URL in your application to see the automatically generated API documentation, including:
+
+- API Overview (base URL, authentication, etc.)
+- Authorization scheme
+- Request body with input validation
+- Output response schema
+- Defined error responses
+
+This approach simplifies the process of maintaining up-to-date API documentation for your users.
 
 
 Mount a WSGI / ASGI Apps (e.g. Flask, Starlette,...)
