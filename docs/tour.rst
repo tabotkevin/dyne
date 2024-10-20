@@ -129,25 +129,180 @@ Here, you can spawn off a background thread to run any function, out-of-request:
 GraphQL
 -------
 
-Serve a GraphQL API::
+Dyne provides built-in support for integrating **GraphQL** using both **Strawberry** and **Graphene** libraries. 
+With either library, you can create GraphQL schemas containing queries, mutations, or both, and expose them via a `GraphQLView`. 
+
+This view is added to a Dyne API route, such as `/graphql`. The endpoint can then be accessed either via a GraphQL client, your browser, or tools like Postman.
+Visiting the endpoint will render a *GraphiQL* instance, in the browser, allowing you to easily interact with your GraphQL schema.
+
+The following sections provide examples of how to use **Strawberry** and **Graphene** with Dyne.
+
+
+.. contents::
+   :local:
+   :depth: 1
+
+1. Strawberry GraphQL
+---------------------
+
+The following example demonstrates how to set up a **Strawberry** schema and route it through Dyne’s `GraphQLView`:
+
+.. code-block:: python
+
+    import strawberry
+    import dyne
+    from dyne.ext.graphql import GraphQLView
+
+    api = dyne.API()
+
+    # Define a response type for mutations
+    @strawberry.type
+    class MessageResponse:
+        ok: bool
+        message: str
+
+    # Define a Mutation class
+    @strawberry.type
+    class Mutation:
+        @strawberry.mutation
+        def create_message(self, name: str, message: str) -> MessageResponse:
+            return MessageResponse(ok=True, message=f"Message from {name}: {message}")
+
+    # Define a Query class
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def hello(self, name: str = "stranger") -> str:
+            return f"Hello {name}"
+
+    # Create the schema
+    schema = strawberry.Schema(query=Query, mutation=Mutation)
+
+    # Create GraphQL view and add it to the API
+    view = GraphQLView(api=api, schema=schema)
+    api.add_route("/graphql", view)
+
+
+You can make use of Dyne’s `Request` and `Response` objects in your GraphQL resolvers through ``info.context['request']`` and ``info.context['response']``. 
+This allows you to access and manipulate request/response data within your GraphQL operations.
+
+2. Graphene GraphQL
+---------------------
+
+The following example demonstrates how to set up a **Graphene** schema and route it through Dyne’s `GraphQLView`:
+
+.. code-block:: python
 
     import graphene
+    import dyne
+    from dyne.ext.graphql import GraphQLView
 
+    api = dyne.API()
+
+    # Define a Mutation for Graphene
+    class CreateMessage(graphene.Mutation):
+        class Arguments:
+            name = graphene.String(required=True)
+            message = graphene.String(required=True)
+
+        ok = graphene.Boolean()
+        message = graphene.String()
+
+        def mutate(self, info, name, message):
+            return CreateMessage(ok=True, message=f"Message from {name}: {message}")
+
+    # Define a Mutation class
+    class Mutation(graphene.ObjectType):
+        create_message = CreateMessage.Field()
+
+    # Define a Query class
     class Query(graphene.ObjectType):
         hello = graphene.String(name=graphene.String(default_value="stranger"))
 
         def resolve_hello(self, info, name):
             return f"Hello {name}"
 
-    schema = graphene.Schema(query=Query)
-    view = dyne.ext.GraphQLView(api=api, schema=schema)
+    # Create the schema
+    schema = graphene.Schema(query=Query, mutation=Mutation)
 
-    api.add_route("/graph", view)
+    # Create GraphQL view and add it to the API
+    view = GraphQLView(api=api, schema=schema)
+    api.add_route("/graphql", view)
 
-Visiting the endpoint will render a *GraphiQL* instance, in the browser.
+Just like with **Strawberry**, Dyne’s `Request` and `Response` objects can be accessed in your GraphQL resolvers using ``info.context['request']`` and ``info.context['response']``.
 
-You can make use of dyne's Request and Response objects in your GraphQL resolvers through ``info.context['request']`` and ``info.context['response']``.
 
+GraphQL Queries and Mutations
+---------------------
+
+Once your API is set up with either **Strawberry** or **Graphene**, you can interact with it by making queries and mutations via the `/graphql` route.
+
+Here are some example GraphQL queries and mutations you can use:
+
+**Example Query 1: Fetch a default hello message**
+
+.. code-block:: graphql
+
+    query {
+      hello
+    }
+
+**Expected Response:**
+
+.. code-block:: json
+
+    {
+      "data": {
+        "hello": "Hello stranger"
+      }
+    }
+
+
+**Example Query 2: Fetch a personalized hello message**
+
+.. code-block:: graphql
+
+    query {
+      hello(name: "Alice")
+    }
+
+**Expected Response:**
+
+.. code-block:: json
+
+    {
+      "data": {
+        "hello": "Hello Alice"
+      }
+    }
+
+
+**Example Mutation: Create a message**
+
+.. code-block:: graphql
+
+    mutation {
+      createMessage(name: "Alice", message: "GraphQL is awesome!") {
+        ok
+        message
+      }
+    }
+
+**Expected Response:**
+
+.. code-block:: json
+
+    {
+      "data": {
+        "createMessage": {
+          "ok": true,
+          "message": "Message from Alice: GraphQL is awesome!"
+        }
+      }
+    }
+
+
+For more advanced configurations or additional examples, refer to the respective documentation for **Strawberry** and **Graphene**.
 
 
 Request validation

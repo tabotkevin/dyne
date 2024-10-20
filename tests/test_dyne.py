@@ -143,9 +143,9 @@ def test_yaml_media(api):
 
 
 def test_graphql_schema_query_querying(api, schema):
-    api.add_route("/", dyne.ext.GraphQLView(schema=schema, api=api))
+    api.add_route("/graphql", dyne.ext.GraphQLView(schema=schema, api=api))
 
-    r = api.requests.get("http://;/?q={ hello }", headers={"Accept": "json"})
+    r = api.requests.get("http://;/graphql?q={ hello }", headers={"Accept": "json"})
     assert r.json() == {"data": {"hello": "Hello stranger"}}
 
 
