@@ -191,7 +191,7 @@ class API:
         check_existing=True,
         websocket=False,
         before_request=False,
-        methods=("GET",),
+        methods=("GET", "POST"),
     ):
         """Adds a route to the API.
 
@@ -277,7 +277,7 @@ class API:
 
         self.router.add_event_handler(event_type, handler)
 
-    def route(self, route=None, **options):
+    def route(self, route=None, methods=("GET",), **options):
         """Decorator for creating new routes around function and class definitions.
 
         Usage::
@@ -289,7 +289,7 @@ class API:
         """
 
         def decorator(f):
-            self.add_route(route, f, **options)
+            self.add_route(route, f, methods=methods, **options)
             return f
 
         return decorator
