@@ -33,7 +33,7 @@ def test_strawberry(api):
       hello(name: "Alice")
     }
     """
-    response = api.requests.post("http://;/graphql", json={"query": query})
+    response = api.client.post("http://;/graphql", json={"query": query})
     assert response.status_code == 200
     assert response.json() == {"data": {"hello": "Hello Alice"}}
 
@@ -46,7 +46,7 @@ def test_strawberry(api):
       }
     }
     """
-    response = api.requests.post("http://;/graphql", json={"query": mutation})
+    response = api.client.post("http://;/graphql", json={"query": mutation})
     assert response.status_code == 200
     assert response.json() == {
         "data": {
@@ -63,7 +63,7 @@ def test_strawberry(api):
       nonExistentField
     }
     """
-    response = api.requests.post("http://;/graphql", json={"query": invalid_query})
+    response = api.client.post("http://;/graphql", json={"query": invalid_query})
     assert response.status_code == 400
     assert "errors" in response.json()
 
@@ -100,7 +100,7 @@ def test_graphene(api):
       hello(name: "Alice")
     }
     """
-    response = api.requests.post("http://;/graphql", json={"query": query})
+    response = api.client.post("http://;/graphql", json={"query": query})
     assert response.status_code == 200
     assert response.json() == {"data": {"hello": "Hello Alice"}}
 
@@ -113,7 +113,7 @@ def test_graphene(api):
       }
     }
     """
-    response = api.requests.post("http://;/graphql", json={"query": mutation})
+    response = api.client.post("http://;/graphql", json={"query": mutation})
     assert response.status_code == 200
     assert response.json() == {
         "data": {
@@ -130,6 +130,6 @@ def test_graphene(api):
       nonExistentField
     }
     """
-    response = api.requests.post("http://;/graphql", json={"query": invalid_query})
+    response = api.client.post("http://;/graphql", json={"query": invalid_query})
     assert response.status_code == 400
     assert "errors" in response.json()

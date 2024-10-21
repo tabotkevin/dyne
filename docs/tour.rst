@@ -357,11 +357,11 @@ Optionally, you can provide a `key` variable, which acts as the name of the vari
 
 
     # Media requests
-    r = api.requests.post("http://;/book", json={"price": 9.99, "title": "Pydantic book"})
+    r = api.client.post("http://;/book", json={"price": 9.99, "title": "Pydantic book"})
     print(r.json())
 
     # Query(params) requests
-    r = api.requests.get("http://;/books?page=2&limit=20")
+    r = api.client.get("http://;/books?page=2&limit=20")
     print(r.json())
 
 
@@ -437,10 +437,10 @@ This decorator also supports parameters such as `header`, which defines a schema
         resp.obj = session.query(Book)
 
 
-    r = api.requests.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
+    r = api.client.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
     print(r.json())  # {'id': 3, 'price': 11.99, 'title': 'Monty Python'}
 
-    r = api.requests.post("http://;/all")
+    r = api.client.post("http://;/all")
     print(r.json())  # [{'id': 1, 'price': 9.99, 'title': 'Harry Potter'}, {'id': 2, 'price': 11.99, 'title': 'Monty Python'}]
 
 
@@ -733,7 +733,7 @@ Example:
         https://api.example.com/v1
 
     Authentication:
-        All API requests require an API key. Include your API key in the Authorization header as follows:
+        All api.client require an API key. Include your API key in the Authorization header as follows:
         Authorization: Bearer YOUR_API_KEY
 
     For further inquiries or support, please contact support@example.com.
@@ -947,7 +947,7 @@ Here's an example of a test (written with pytest)::
         def some_view(req, resp):
             resp.text = hello
 
-        r = api.requests.get(url=api.url_for(some_view))
+        r = api.client.get(url=api.url_for(some_view))
         assert r.text == hello
 
 HSTS (Redirect to HTTPS)

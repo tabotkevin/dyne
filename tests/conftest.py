@@ -23,7 +23,7 @@ def api():
 
 @pytest.fixture
 def session(api):
-    return api.requests
+    return api.client
 
 
 @pytest.fixture

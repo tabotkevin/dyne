@@ -1,6 +1,6 @@
 [project]
 name = "dyne"
-version = "1.0.6"
+version = "1.0.7"
 description = "A light weight Python async framework with batteries included."
 authors = [{ name = "Tabot Kevin", email = "tabot.kevin@gmail.com" }]
 dependencies = [

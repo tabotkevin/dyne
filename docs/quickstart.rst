@@ -243,16 +243,17 @@ This approach allows for easy handling of files, including background tasks for 
         resp.media = {'success': 'ok'}
 
 
-You can send a file easily with `requests`.
+You can send a file easily with `httpx`.
 
 **Example:**
 
 .. code-block:: python
 
-    import requests
+    import httpx
 
     data = {'file': ('hello.txt', 'hello, world!', 'text/plain')}
-    r = requests.post('http://127.0.0.1:8210/file', files=data)
+    with httpx.Client() as client:
+      r = client.post('http://127.0.0.1:8210/file', files=data)
 
     print(r.text)
 
