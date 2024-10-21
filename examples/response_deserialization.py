@@ -75,9 +75,9 @@ async def all_books(req, resp):
     resp.obj = session.query(Book)
 
 
-r = api.requests.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
+r = api.client.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
 print(r.json())
 
-r = api.requests.post("http://;/all")
+r = api.client.post("http://;/all")
 print(r.json())
 os.remove("db")

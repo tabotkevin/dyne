@@ -135,7 +135,7 @@ class API:
 
         # TODO: Update docs for templates
         self.templates = Templates(directory=templates_dir)
-        self.requests = (
+        self.client = (
             self.session()
         )  #: A Requests session that is connected to the ASGI app.
 
@@ -452,7 +452,7 @@ class API:
                 process_item(data)
                 resp.media = {"msg": "created"}
 
-            r = api.requests.post("http://;/create", json={"price": 9.99, "title": "Pydantic book"})
+            r = api.client.post("http://;/create", json={"price": 9.99, "title": "Pydantic book"})
         """
         return self._parse_request(schema, location=location, key=key, unknown=unknown)
 

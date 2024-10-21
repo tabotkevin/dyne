@@ -93,26 +93,26 @@ async def store(req, resp, *, c, data):
 # Let's make an HTTP request to the server, to test it out.'}
 
 # Media requests
-r = api.requests.post("http://;/book", json={"price": 9.99, "title": "Pydantic book"})
+r = api.client.post("http://;/book", json={"price": 9.99, "title": "Pydantic book"})
 print(r.json())
 
 
 # Query(params) requests
-r = api.requests.get("http://;/books?page=2&limit=20")
+r = api.client.get("http://;/books?page=2&limit=20")
 print(r.json())
 
 
 # Headers requests
-r = api.requests.post("http://;/book/1", headers={"X-Version": "2.4.5"})
+r = api.client.post("http://;/book/1", headers={"X-Version": "2.4.5"})
 print(r.json())
 
 
 # Cookies requests
-r = api.requests.get("http://;/", cookies={"max_age": "123", "is_cheap": "True"})
+r = api.client.get("http://;/", cookies={"max_age": "123", "is_cheap": "True"})
 print(r.text)
 
 
-r = api.requests.post(
+r = api.client.post(
     "http://;/store",
     json={"price": 9.99, "title": "Pydantic book"},
     cookies={"max_age": "123", "is_cheap": "True"},
@@ -121,5 +121,5 @@ print(r.json())
 
 
 # Manual validation
-r = api.requests.post("http://;/shop", json={"price": 9.99, "title": "Harry Potter"})
+r = api.client.post("http://;/shop", json={"price": 9.99, "title": "Harry Potter"})
 print(r.text)

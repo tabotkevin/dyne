@@ -30,6 +30,6 @@ async def book_create(req, resp, *, data):
     resp.media = {"msg": "created"}
 
 
-r = api.requests.post("http://;/book", json={"price": 9.99, "title": "Rust book"})
+r = api.client.post("http://;/book", json={"price": 9.99, "title": "Rust book"})
 print(r.json())
 print(f"Route's _spec: {book_create._spec}")

@@ -94,7 +94,7 @@ def test_class_based_view_parameters(api):
 
 def test_requests_session(api):
     assert api.session()
-    assert api.requests
+    assert api.client
 
 
 def test_requests_session_works(api):
@@ -104,7 +104,7 @@ def test_requests_session_works(api):
     def hello(req, resp):
         resp.text = TEXT
 
-    assert api.requests.get("/").text == TEXT
+    assert api.client.get("/").text == TEXT
 
 
 def test_status_code(api):
@@ -113,7 +113,7 @@ def test_status_code(api):
         resp.text = "keep going"
         resp.status_code = status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE
 
-    assert api.requests.get("http://;/").status_code == 416
+    assert api.client.get("http://;/").status_code == 416
 
 
 def test_json_media(api):
@@ -123,7 +123,7 @@ def test_json_media(api):
     def media(req, resp):
         resp.media = dump
 
-    r = api.requests.get("http://;/")
+    r = api.client.get("http://;/")
 
     assert "json" in r.headers["Content-Type"]
     assert r.json() == dump
@@ -136,7 +136,7 @@ def test_yaml_media(api):
     def media(req, resp):
         resp.media = dump
 
-    r = api.requests.get("http://;/", headers={"Accept": "yaml"})
+    r = api.client.get("http://;/", headers={"Accept": "yaml"})
 
     assert "yaml" in r.headers["Content-Type"]
     assert yaml.load(r.content, Loader=yaml.FullLoader) == dump
@@ -145,7 +145,7 @@ def test_yaml_media(api):
 def test_graphql_schema_query_querying(api, schema):
     api.add_route("/graphql", dyne.ext.GraphQLView(schema=schema, api=api))
 
-    r = api.requests.get("http://;/graphql?q={ hello }", headers={"Accept": "json"})
+    r = api.client.get("http://;/graphql?q={ hello }", headers={"Accept": "json"})
     assert r.json() == {"data": {"hello": "Hello stranger"}}
 
 
@@ -154,7 +154,7 @@ def test_argumented_routing(api):
     def hello(req, resp, *, name):
         resp.text = f"Hello, {name}."
 
-    r = api.requests.get(api.url_for(hello, name="sean"))
+    r = api.client.get(api.url_for(hello, name="sean"))
     assert r.text == "Hello, sean."
 
 
@@ -163,7 +163,7 @@ def test_mote_argumented_routing(api):
     def hello(req, resp, *, greeting, name):
         resp.text = f"{greeting}, {name}."
 
-    r = api.requests.get(api.url_for(hello, greeting="hello", name="lyndsy"))
+    r = api.client.get(api.url_for(hello, greeting="hello", name="lyndsy"))
     assert r.text == "hello, lyndsy."
 
 
@@ -176,7 +176,7 @@ def test_request_and_get(api):
         def on_get(self, req, resp):
             resp.headers.update({"LIFE": "42"})
 
-    r = api.requests.get(api.url_for(ThingsResource))
+    r = api.client.get(api.url_for(ThingsResource))
     assert "DEATH" in r.headers
     assert "LIFE" in r.headers
 
@@ -187,7 +187,7 @@ def test_class_based_view_status_code(api):
         def on_request(self, req, resp):
             resp.status_code = api.status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE
 
-    assert api.requests.get("http://;/").status_code == 416
+    assert api.client.get("http://;/").status_code == 416
 
 
 def test_query_params(api, url):
@@ -195,10 +195,10 @@ def test_query_params(api, url):
     def route(req, resp):
         resp.media = {"params": req.params}
 
-    r = api.requests.get(api.url_for(route), params={"q": "q"})
+    r = api.client.get(api.url_for(route), params={"q": "q"})
     assert r.json()["params"] == {"q": "q"}
 
-    r = api.requests.get(url("/?q=1&q=2&q=3"))
+    r = api.client.get(url("/?q=1&q=2&q=3"))
     assert r.json()["params"] == {"q": "3"}
 
 
@@ -209,7 +209,7 @@ def test_form_data(api):
         resp.media = {"form": await req.media("form")}
 
     dump = {"q": "q"}
-    r = api.requests.post(api.url_for(route), data=dump)
+    r = api.client.post(api.url_for(route), data=dump)
     assert r.json()["form"] == dump
 
 
@@ -220,7 +220,7 @@ def test_async_function(api):
     async def route(req, resp):
         resp.text = content
 
-    r = api.requests.get(api.url_for(route))
+    r = api.client.get(api.url_for(route))
     assert r.text == content
 
 
@@ -231,10 +231,10 @@ def test_media_parsing(api):
     def route(req, resp):
         resp.media = dump
 
-    r = api.requests.get(api.url_for(route))
+    r = api.client.get(api.url_for(route))
     assert r.json() == dump
 
-    r = api.requests.get(api.url_for(route), headers={"Accept": "application/x-yaml"})
+    r = api.client.get(api.url_for(route), headers={"Accept": "application/x-yaml"})
     assert r.text == "hello: sam\n"
 
 
@@ -250,7 +250,7 @@ def test_background(api):
         task()
         api.text = "ok"
 
-    r = api.requests.get(api.url_for(route))
+    r = api.client.get(api.url_for(route))
     assert r.status_code == 200
 
 
@@ -263,24 +263,24 @@ def test_multiple_routes(api):
     def route2(req, resp):
         resp.text = "2"
 
-    r = api.requests.get(api.url_for(route1))
+    r = api.client.get(api.url_for(route1))
     assert r.text == "1"
 
-    r = api.requests.get(api.url_for(route2))
+    r = api.client.get(api.url_for(route2))
     assert r.text == "2"
 
 
 def test_graphql_schema_json_query(api, schema):
     api.add_route("/", dyne.ext.GraphQLView(schema=schema, api=api), methods=["POST"])
 
-    r = api.requests.post("http://;/", json={"query": "{ hello }"})
+    r = api.client.post("http://;/", json={"query": "{ hello }"})
     assert r.status_code == 200
 
 
 def test_graphiql(api, schema):
     api.add_route("/", dyne.ext.GraphQLView(schema=schema, api=api))
 
-    r = api.requests.get("http://;/", headers={"Accept": "text/html"})
+    r = api.client.get("http://;/", headers={"Accept": "text/html"})
     assert r.status_code == 200
     assert "GraphiQL" in r.text
 
@@ -291,7 +291,7 @@ def test_json_uploads(api):
         resp.media = await req.media()
 
     dump = {"complicated": "times"}
-    r = api.requests.post(api.url_for(route), json=dump)
+    r = api.client.post(api.url_for(route), json=dump)
     assert r.json() == dump
 
 
@@ -301,7 +301,7 @@ def test_yaml_uploads(api):
         resp.media = await req.media()
 
     dump = {"complicated": "times"}
-    r = api.requests.post(
+    r = api.client.post(
         api.url_for(route),
         content=yaml.dump(dump),
         headers={"Content-Type": "application/x-yaml"},
@@ -315,13 +315,13 @@ def test_form_uploads(api):
         resp.media = await req.media()
 
     dump = {"complicated": "times"}
-    r = api.requests.post(api.url_for(route), data=dump)
+    r = api.client.post(api.url_for(route), data=dump)
     assert r.json() == dump
 
     # requests with boundary
     files = {"complicated": (None, "times")}
     with pytest.raises(Exception) as err:  # noqa: F841
-        r = api.requests.post(api.url_for(route), files=files)
+        r = api.client.post(api.url_for(route), files=files)
 
 
 def test_json_downloads(api):
@@ -331,9 +331,7 @@ def test_json_downloads(api):
     def route(req, resp):
         resp.media = dump
 
-    r = api.requests.get(
-        api.url_for(route), headers={"Content-Type": "application/json"}
-    )
+    r = api.client.get(api.url_for(route), headers={"Content-Type": "application/json"})
     assert r.json() == dump
 
 
@@ -344,7 +342,7 @@ def test_yaml_downloads(api):
     def route(req, resp):
         resp.media = dump
 
-    r = api.requests.get(
+    r = api.client.get(
         api.url_for(route), headers={"Content-Type": "application/x-yaml"}
     )
     assert yaml.safe_load(r.content) == dump
@@ -401,7 +399,7 @@ def test_documentation_explicit():
         """
         resp.media = PetSchema().dump({"name": "little orange"})
 
-    r = api.requests.get("/doc")
+    r = api.client.get("/doc")
     assert "html" in r.text
 
 
@@ -452,7 +450,7 @@ def test_documentation():
         """
         resp.media = PetSchema().dump({"name": "little orange"})
 
-    r = api.requests.get("/docs")
+    r = api.client.get("/docs")
     assert "html" in r.text
 
 
@@ -463,7 +461,7 @@ def test_mount_wsgi_app(api, flask):
 
     api.mount("/flask", flask)
 
-    r = api.requests.get("http://;/flask")
+    r = api.client.get("http://;/flask")
     assert r.status_code == 200
 
 
@@ -474,7 +472,7 @@ def test_async_class_based_views(api):
             resp.text = await req.text
 
     data = "frame"
-    r = api.requests.post(api.url_for(Resource), content=data)
+    r = api.client.post(api.url_for(Resource), content=data)
     assert r.text == data
 
 
@@ -493,14 +491,14 @@ def test_cookies(api):
             httponly=True,
         )
 
-    client = api.requests
+    client = api.client
     client.cookies = {"hello": "universe"}
     r = client.get(api.url_for(home))
     assert r.json() == {"cookies": {"hello": "universe"}}
     assert "sent" in r.cookies
     assert "hello" in r.cookies
 
-    r = api.requests.get(api.url_for(home))
+    r = api.client.get(api.url_for(home))
     assert r.json() == {"cookies": {"hello": "world", "sent": "true"}}
 
 
@@ -511,10 +509,10 @@ def test_sessions(api):
         resp.session["hello"] = "world"
         resp.media = resp.session
 
-    r = api.requests.get(api.url_for(view))
+    r = api.client.get(api.url_for(view))
     assert api.session_cookie in r.cookies
 
-    r = api.requests.get(api.url_for(view))
+    r = api.client.get(api.url_for(view))
     assert (
         r.cookies[api.session_cookie]
         == '{"hello": "world"}.r3EB04hEEyLYIJaAXCEq3d4YEbs'
@@ -527,7 +525,7 @@ def test_template_string_rendering(api):
     def view(req, resp):
         resp.content = api.template_string("{{ var }}", var="hello")
 
-    r = api.requests.get(api.url_for(view))
+    r = api.client.get(api.url_for(view))
     assert r.text == "hello"
 
 
@@ -538,7 +536,7 @@ def test_template_rendering(template_path):
     def view(req, resp):
         resp.content = api.template(template_path.basename, var="hello")
 
-    r = api.requests.get(api.url_for(view))
+    r = api.client.get(api.url_for(view))
     assert r.text == "hello"
 
 
@@ -549,7 +547,7 @@ def test_template(api, template_path):
     def view(req, resp, var):
         resp.html = templates.render(template_path.basename, var=var)
 
-    r = api.requests.get("/test/")
+    r = api.client.get("/test/")
     assert r.text == "test"
 
 
@@ -560,7 +558,7 @@ def test_template_async(api, template_path):
     async def view_async(req, resp, var):
         resp.html = await templates.render_async(template_path.basename, var=var)
 
-    r = api.requests.get("/test/async")
+    r = api.client.get("/test/async")
     assert r.text == "test"
 
 
@@ -574,7 +572,7 @@ def test_file_uploads(api):
 
     world = io.BytesIO(b"world")
     data = {"hello": ("hello.txt", world, "text/plain")}
-    r = api.requests.post(api.url_for(upload), files=data)
+    r = api.client.post(api.url_for(upload), files=data)
     assert r.json() == {"files": {"hello": "world"}}
 
     @api.route("/not_file", methods=["POST"])
@@ -587,7 +585,7 @@ def test_file_uploads(api):
     world = io.BytesIO(b"world")
     data = {"not-a-file": b"data only"}
     with pytest.raises(Exception) as err:  # noqa: F841
-        r = api.requests.post(api.url_for(upload_not_file), files=data)
+        r = api.client.post(api.url_for(upload_not_file), files=data)
 
 
 def test_500(api):
@@ -603,7 +601,7 @@ def test_500(api):
 
 
 def test_404(api):
-    r = api.requests.get("/foo")
+    r = api.client.get("/foo")
 
     assert r.status_code == status.HTTP_404_NOT_FOUND
 
@@ -685,7 +683,7 @@ def test_startup(api):
     async def run_startup():
         who[0] = "world"
 
-    with api.requests as session:
+    with api.client as session:
         r = session.get("http://;/hello")
         assert r.text == "hello, world!"
 
@@ -744,7 +742,7 @@ def test_allowed_hosts(enable_hsts, cors):
         pass
 
     # Exact match
-    r = api.requests.get(api.url_for(get))
+    r = api.client.get(api.url_for(get))
     assert r.status_code == 200
 
     # Reset the session
@@ -770,7 +768,7 @@ def test_allowed_hosts(enable_hsts, cors):
 
     # Wildcard domains
     # Using http://;
-    r = api.requests.get(api.url_for(get))
+    r = api.client.get(api.url_for(get))
     assert r.status_code == 400
 
     # Reset the session
@@ -841,7 +839,7 @@ def test_response_html_property(api):
         assert resp.content == "<h1>Hello !</h1>"
         assert resp.mimetype == "text/html"
 
-    r = api.requests.get(api.url_for(view))
+    r = api.client.get(api.url_for(view))
     assert r.content == b"<h1>Hello !</h1>"
     assert r.headers["Content-Type"] == "text/html"
 
@@ -854,7 +852,7 @@ def test_response_text_property(api):
         assert resp.content == "<h1>Hello !</h1>"
         assert resp.mimetype == "text/plain"
 
-    r = api.requests.get(api.url_for(view))
+    r = api.client.get(api.url_for(view))
     assert r.content == b"<h1>Hello !</h1>"
     assert r.headers["Content-Type"] == "text/plain"
 
@@ -904,7 +902,7 @@ def test_empty_req_text(api):
         await req.text
         resp.text = content
 
-    r = api.requests.post("/")
+    r = api.client.post("/")
     assert r.text == content
 
     def test_api_request_state(api, url):
@@ -922,7 +920,7 @@ def test_empty_req_text(api):
         def home(req, resp):
             resp.text = "{}_{}".format(req.state.test2, req.state.test1)
 
-        assert api.requests.get(url("/")).text == "Foo_42"
+        assert api.client.get(url("/")).text == "Foo_42"
 
 
 def test_path_matches_route(api):
@@ -968,12 +966,12 @@ def test_pydantic_input_request_validation(api):
     # Valid media
     data = {"name": "Test Item"}
     # resp_mock.media.return_value = data
-    response = api.requests.post(api.url_for(create_item), json=data)
+    response = api.client.post(api.url_for(create_item), json=data)
     assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "created"
 
     # Valid  cookies
-    client = api.requests
+    client = api.client
     client.cookies = {"max_age": "123", "is_cheap": "True"}
     response = client.get(api.url_for(home_cookies))
     assert response.status_code == api.status.HTTP_200_OK
@@ -981,7 +979,7 @@ def test_pydantic_input_request_validation(api):
 
     # Invalid Pydantic data
     data = {"name": [123]}  # Invalid data
-    response = api.requests.post(api.url_for(create_item), json=data)
+    response = api.client.post(api.url_for(create_item), json=data)
     assert response.status_code == api.status.HTTP_400_BAD_REQUEST
     assert "error" in response.text
 
@@ -1023,25 +1021,23 @@ def test_marshmallow_input_request_validation(api):
 
     # Valid data
     data = {"name": "Test Item"}
-    response = api.requests.post(api.url_for(create_item), json=data)
+    response = api.client.post(api.url_for(create_item), json=data)
     assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "created"
 
     # Valid params(query)
-    response = api.requests.get(api.url_for(get_items), params={"page": 2, "limit": 20})
+    response = api.client.get(api.url_for(get_items), params={"page": 2, "limit": 20})
     assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"items": [{"name": "Scooter"}]}
 
     # Valid headers
-    response = api.requests.post(
-        api.url_for(item, id=1), headers={"X-Version": "2.4.5"}
-    )
+    response = api.client.post(api.url_for(item, id=1), headers={"X-Version": "2.4.5"})
     assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"name": "Samsung Galaxy"}
 
     # Invalid data
     data = {"name": [123]}  # Invalid data
-    response = api.requests.post(api.url_for(create_item), json=data)
+    response = api.client.post(api.url_for(create_item), json=data)
     assert response.status_code == api.status.HTTP_400_BAD_REQUEST
     assert "error" in response.text
 
@@ -1074,37 +1070,37 @@ def test_endpoint_request_methods(api):
             resp.text = f"any person - {greeting}, world!"
             resp.headers.update({"X-Life": "43"})
 
-    resp = api.requests.get("http://;/Hello")
+    resp = api.client.get("http://;/Hello")
     assert resp.status_code == api.status.HTTP_200_OK
     assert resp.text == "Hello, world!"
 
-    resp = api.requests.post("http://;/Hello")
+    resp = api.client.post("http://;/Hello")
     assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
-    resp = api.requests.get("http://;/me/Hey")
+    resp = api.client.get("http://;/me/Hey")
     assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
-    resp = api.requests.post("http://;/me/Hey")
+    resp = api.client.post("http://;/me/Hey")
     assert resp.status_code == api.status.HTTP_200_OK
     assert resp.text == "POST - Hey, world!"
 
-    resp = api.requests.get("http://;/no/Hello")
+    resp = api.client.get("http://;/no/Hello")
     assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
-    resp = api.requests.post("http://;/no/Hello")
+    resp = api.client.post("http://;/no/Hello")
     assert resp.status_code == api.status.HTTP_405_METHOD_NOT_ALLOWED
 
-    resp = api.requests.get("http://;/person/Hi")
+    resp = api.client.get("http://;/person/Hi")
     assert resp.text == "GET person - Hi, world!"
     assert resp.headers["X-Life"] == "41"
     assert resp.status_code == api.status.HTTP_201_CREATED
 
-    resp = api.requests.post("http://;/person/Hi")
+    resp = api.client.post("http://;/person/Hi")
     assert resp.text == "POST person - Hi, world!"
     assert resp.headers["X-Life"] == "42"
     assert resp.status_code == api.status.HTTP_200_OK
 
-    resp = api.requests.put("http://;/person/Hi")
+    resp = api.client.put("http://;/person/Hi")
     assert resp.text == "any person - Hi, world!"
     assert resp.headers["X-Life"] == "43"
     assert resp.status_code == api.status.HTTP_200_OK
@@ -1165,11 +1161,11 @@ def test_pydantic_response_schema_serialization(api):
         resp.obj = session.query(Book)
 
     data = {"title": "Learning dyne", "price": 39.99}
-    response = api.requests.post(api.url_for(create_book), json=data)
+    response = api.client.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"id": 3, "price": 39.99, "title": "Learning dyne"}
 
-    response = api.requests.get(api.url_for(all_books))
+    response = api.client.get(api.url_for(all_books))
     assert response.status_code == api.status.HTTP_200_OK
     rs = response.json()
     assert len(rs) == 3
@@ -1235,11 +1231,11 @@ def test_marshmallow_response_schema_serialization(api):
         resp.obj = session.query(Book)
 
     data = {"title": "Python Programming", "price": 11.99}
-    response = api.requests.post(api.url_for(create_book), json=data)
+    response = api.client.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status.HTTP_200_OK
     assert response.json() == {"id": 3, "price": 11.99, "title": "Python Programming"}
 
-    response = api.requests.get(api.url_for(all_books))
+    response = api.client.get(api.url_for(all_books))
     assert response.status_code == api.status.HTTP_200_OK
     rs = response.json()
     assert len(rs) == 3
