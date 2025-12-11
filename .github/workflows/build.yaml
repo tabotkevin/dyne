@@ -1,6 +1,9 @@
 name: Build
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ["main"]
+  pull_request:
 
 jobs:
   build:
@@ -8,17 +11,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8, 3.11]
+        python-version: [3.11, 3.12]
         os: [ubuntu-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install the latest version of rye
         uses: eifinger/setup-rye@v2
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 

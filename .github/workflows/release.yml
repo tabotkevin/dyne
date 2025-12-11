@@ -1,0 +1,44 @@
+name: Publish to PyPI
+
+on:
+  # Trigger when you click “Publish Release”
+  release:
+    types: [published]
+
+  push:
+    tags:
+      - "v*.*.*" # triggered when auto-version workflow pushes a tag
+
+jobs:
+  publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write # Required for trusted publishing
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install Rye
+      - name: Install Rye
+        uses: eifinger/setup-rye@v2
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: rye sync
+
+      - name: Build package
+        run: rye build
+
+      # Upload to PyPI (trusted publishing, no tokens needed)
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

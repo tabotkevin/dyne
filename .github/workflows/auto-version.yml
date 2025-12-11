@@ -1,0 +1,82 @@
+name: Auto Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  bump-version:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version bump type
+        id: bump_type
+        run: |
+          LABELS=$(echo "${{ toJson(github.event.pull_request.labels) }}" | jq -r '.[].name')
+
+          if echo "$LABELS" | grep -q "major"; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "minor"; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract current version from pyproject.toml
+        id: current_version
+        run: |
+          VERSION=$(grep -E '^version' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Calculate next version
+        id: next_version
+        run: |
+          OLD=${{ steps.current_version.outputs.version }}
+          PART=${{ steps.bump_type.outputs.type }}
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$OLD"
+
+          if [[ "$PART" == "major" ]]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [[ "$PART" == "minor" ]]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW="$MAJOR.$MINOR.$PATCH"
+          echo "new_version=$NEW" >> $GITHUB_OUTPUT
+
+      - name: Update pyproject.toml
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${{ steps.next_version.outputs.new_version }}\"/" pyproject.toml
+
+      - name: Commit version bump
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ steps.next_version.outputs.new_version }}"
+          git push origin main
+
+      # - name: Create Git tag  # create automatic tagging e.g `git tag v1.2.0` and `git push origin v1.2.0`
+      #   run: |
+      #     git tag v${{ steps.next_version.outputs.new_version }}
+      #     git push origin v${{ steps.next_version.outputs.new_version }}
+
+      - name: Output final version
+        run: echo "Released version ${{ steps.next_version.outputs.new_version }}"
