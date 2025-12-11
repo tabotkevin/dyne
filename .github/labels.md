@@ -58,6 +58,14 @@ These are **required** for automatic changelog grouping:
 | `tests`       | 🧪 Tests         |
 | `maintenance` | ⚙️ Maintenance   |
 
+### ⚠️ PR Versioning tags
+
+| Label   | Description                         |
+| ------- | ----------------------------------- |
+| `patch` | PR triggers a patch release (0.0.X) |
+| `minor` | PR triggers a minor release (0.X.0) |
+| `major` | PR triggers a major release (X.0.0) |
+
 ### ⚠️ Priority / Severity
 
 | Label              | Description            |
