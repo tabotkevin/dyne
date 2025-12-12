@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+  pull_request:
+    types: [opened, reopened, synchronize]
+
 jobs:
   tag:
     runs-on: ubuntu-latest
@@ -20,8 +23,13 @@ jobs:
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          version_file: pyproject.toml
+          release_branches: main
+          default_version: ${{ steps.tagger.outputs.current_version }}
+          dry_run: true
 
       - name: Push tag
+        if: steps.tagger.outputs.new_tag != ''
         run: |
           git push origin --tags
         env:
