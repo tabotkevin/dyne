@@ -3,11 +3,13 @@ tag-template: "v$NEXT_PATCH_VERSION"
 tag-prefix: ""
 
 template: |
-  ## Changes
-
+  ## 🚀 Release Notes
   $CHANGES
 
-change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+  ## Contributors
+  $CONTRIBUTORS
+
+change-template: "- $TITLE (#$NUMBER)"
 change-title-escapes: ""
 
 no-changes-template: "* No changes"
