@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   version:
-    # Only run if PR was merged AND bump type is not 'none'
     if: >
       github.event.pull_request.merged == true
     runs-on: ubuntu-latest
@@ -45,19 +44,17 @@ jobs:
           else
             echo "type=none" >> $GITHUB_OUTPUT
           fi
-
-      # Skip remaining steps when type = none
-      - name: Stop if no version bump is required
-        if: steps.bump.outputs.type == 'none'
-        run: echo "No version bump required — skipping workflow." && exit 0
+          echo "Bump type determined as ${{ steps.bump.outputs.type }}"
 
       - name: Get current version
+        if: steps.bump.outputs.type != 'none'
         id: current
         run: |
           VERSION=$(grep -Po '(?<=version = ").*(?=")' pyproject.toml)
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Calculate next version
+        if: steps.bump.outputs.type != 'none'
         id: next
         run: |
           OLD="${{ steps.current.outputs.current_version }}"
@@ -80,6 +77,7 @@ jobs:
           echo "new_version=$NEW" >> $GITHUB_OUTPUT
 
       - name: Update pyproject.toml
+        if: steps.bump.outputs.type != 'none'
         run: |
           python - <<EOF
           import tomlkit
@@ -91,23 +89,28 @@ jobs:
           EOF
 
       - name: Configure Git
+        if: steps.bump.outputs.type != 'none'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Commit version bump
+        if: steps.bump.outputs.type != 'none'
         run: |
           git add pyproject.toml
           git commit -m "chore: bump version to ${{ steps.next.outputs.new_version }}" || echo "No changes to commit"
 
       - name: Push commit
+        if: steps.bump.outputs.type != 'none'
         run: git push
 
-      - name: Create Git tag # create automatic tagging e.g `git tag v1.2.0` and `git push origin v1.2.0`
+      - name: Create Git tag
+        if: steps.bump.outputs.type != 'none'
         run: |
           TAG="v${{ steps.next.outputs.new_version }}"
           git tag "$TAG"
           git push origin "$TAG"
 
       - name: Output new version
+        if: steps.bump.outputs.type != 'none'
         run: echo "Released version ${{ steps.next.outputs.new_version }}"
