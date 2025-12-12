@@ -1,13 +1,9 @@
 name: Release Drafter
 
-# on:
-#   push:
-#     branches:
-#       - main
-
 on:
-  pull_request:
-    types: [labeled, unlabeled, opened, reopened, synchronize]
+  push:
+    branches:
+      - main
 
 jobs:
   update_release_draft:
@@ -17,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Release Drafter
-        uses: release-drafter/release-drafter@v5
+        uses: release-drafter/release-drafter@v6
         with:
           config-name: release-drafter.yml
         env:
