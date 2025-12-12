@@ -18,14 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract version from pyproject.toml
+        id: extract_version
+        uses: sergey-pimenov/toml-action@v1
+        with:
+          file: pyproject.toml
+          field: "project.version"
+
       - name: Generate tag
         id: tagger
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          version_file: pyproject.toml
+          custom_tag: v${{ steps.extract_version.outputs.value }}
           release_branches: main
-          default_version: ${{ steps.tagger.outputs.current_version }}
           dry_run: true
 
       - name: Push tag
