@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     types: [opened, reopened, synchronize]
 
@@ -23,7 +22,8 @@ jobs:
       - name: Run Release Drafter
         uses: release-drafter/release-drafter@v6
         with:
-          config-name: release-drafter.yml
-          target-commitish: ${{ github.event.pull_request.base.ref }}
+          config-name: .github/release-drafter.yml
+
+          target-commitish: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
