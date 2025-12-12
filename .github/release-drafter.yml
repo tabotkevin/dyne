@@ -2,12 +2,7 @@ name-template: "v$NEXT_PATCH_VERSION"
 tag-template: "v$NEXT_PATCH_VERSION"
 tag-prefix: ""
 
-template: |
-  ## Release Notes
-  $CHANGES
-
-  ## Contributors
-  $CONTRIBUTORS
+template: "## 🚀 Release Notes\n$CHANGES\n\n## Contributors\n$CONTRIBUTORS"
 
 change-template: "- $TITLE (#$NUMBER)"
 change-title-escapes: ""
