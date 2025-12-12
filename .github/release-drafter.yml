@@ -48,7 +48,6 @@ prerelease-identifier: ""
 include-pre-releases: false
 latest: "true"
 filter-by-commitish: false
-commitish: ""
 
 category-template: "## $TITLE"
 header: ""
