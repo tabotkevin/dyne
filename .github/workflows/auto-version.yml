@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   version:
-    if: github.event.pull_request.merged == true
+    # if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
@@ -94,8 +94,8 @@ jobs:
 
       - name: Commit version bump
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
 
           git add pyproject.toml
           git commit -m "chore: bump version to ${{ steps.next.outputs.new_version }}"
