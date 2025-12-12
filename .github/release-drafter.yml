@@ -2,9 +2,12 @@ name-template: "v$NEXT_PATCH_VERSION"
 tag-template: "v$NEXT_PATCH_VERSION"
 tag-prefix: ""
 
-template: "## 🚀 Release Notes\n$CHANGES\n\n## Contributors\n$CONTRIBUTORS"
+template: |
+  ## Changes
 
-change-template: "- $TITLE (#$NUMBER)"
+  $CHANGES
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
 change-title-escapes: ""
 
 no-changes-template: "* No changes"
@@ -48,7 +51,7 @@ sort-direction: descending
 prerelease: false
 prerelease-identifier: ""
 include-pre-releases: false
-latest: "true"
+latest: true
 filter-by-commitish: false
 commitish: ""
 
