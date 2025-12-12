@@ -30,7 +30,7 @@ jobs:
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          custom_tag: v${{ steps.extract_version.outputs.value }}
+          default_version: ${{ steps.extract_version.outputs.value }}
           release_branches: main
           dry_run: true
 
