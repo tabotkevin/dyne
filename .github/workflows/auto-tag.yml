@@ -20,7 +20,7 @@ jobs:
 
       - name: Extract version from pyproject.toml
         id: extract_version
-        uses: sergey-pimenov/toml-action@v1
+        uses: SebRollen/toml-action@v1.2.0
         with:
           file: pyproject.toml
           field: "project.version"
