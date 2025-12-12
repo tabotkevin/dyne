@@ -11,9 +11,10 @@ permissions:
 
 jobs:
   version:
-    if: github.event.pull_request.merged == true
+    # Only run if PR was merged AND bump type is not 'none'
+    if: >
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -39,9 +40,16 @@ jobs:
             echo "type=major" >> $GITHUB_OUTPUT
           elif echo "$LABELS" | grep -q "minor"; then
             echo "type=minor" >> $GITHUB_OUTPUT
-          else
+          elif echo "$LABELS" | grep -q "patch"; then
             echo "type=patch" >> $GITHUB_OUTPUT
+          else
+            echo "type=none" >> $GITHUB_OUTPUT
           fi
+
+      # Skip remaining steps when type = none
+      - name: Stop if no version bump is required
+        if: steps.bump.outputs.type == 'none'
+        run: echo "No version bump required — skipping workflow." && exit 0
 
       - name: Get current version
         id: current
@@ -90,16 +98,16 @@ jobs:
       - name: Commit version bump
         run: |
           git add pyproject.toml
-          git commit -m "chore: bump version to ${{ steps.next.outputs.new_version }}"
+          git commit -m "chore: bump version to ${{ steps.next.outputs.new_version }}" || echo "No changes to commit"
 
       - name: Push commit
         run: git push
 
-      # - name: Create Git tag # create automatic tagging e.g `git tag v1.2.0` and `git push origin v1.2.0`
-      #   run: |
-      #     TAG="v${{ steps.next.outputs.new_version }}"
-      #     git tag "$TAG"
-      #     git push origin "$TAG"
+      - name: Create Git tag # create automatic tagging e.g `git tag v1.2.0` and `git push origin v1.2.0`
+        run: |
+          TAG="v${{ steps.next.outputs.new_version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - name: Output new version
         run: echo "Released version ${{ steps.next.outputs.new_version }}"

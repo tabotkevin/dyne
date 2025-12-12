@@ -5,9 +5,9 @@ on:
   release:
     types: [published]
 
-  push:
-    tags:
-      - "v*.*.*" # triggered when auto-version workflow pushes a tag
+  # push:
+  #   tags:
+  #     - "v*.*.*" # triggered when auto-version workflow pushes a tag
 
 jobs:
   publish:
