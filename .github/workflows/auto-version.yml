@@ -1,13 +1,9 @@
 name: Auto Version Bump
 
-# on:
-#   pull_request:
-#     types: [closed]
-#     branches: ["main"]
-
 on:
   pull_request:
-    types: [labeled, unlabeled, opened, synchronize]
+    types: [closed]
+    branches: ["main"]
 
 permissions:
   contents: write
@@ -15,14 +11,15 @@ permissions:
 
 jobs:
   version:
-    # if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required so tags are fetched as well
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,7 +32,6 @@ jobs:
       - name: Determine version bump type
         id: bump
         run: |
-          # Extract PR labels
           LABELS="$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")"
           echo "Labels: $LABELS"
 
@@ -52,7 +48,6 @@ jobs:
         run: |
           VERSION=$(grep -Po '(?<=version = ").*(?=")' pyproject.toml)
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $VERSION"
 
       - name: Calculate next version
         id: next
@@ -74,29 +69,26 @@ jobs:
           fi
 
           NEW="$MAJOR.$MINOR.$PATCH"
-
           echo "new_version=$NEW" >> $GITHUB_OUTPUT
-          echo "New version: $NEW"
 
       - name: Update pyproject.toml
         run: |
           python - <<EOF
           import tomlkit
-
           with open("pyproject.toml", "r", encoding="utf8") as f:
               data = tomlkit.parse(f.read())
-
           data["project"]["version"] = "${{ steps.next.outputs.new_version }}"
-
           with open("pyproject.toml", "w", encoding="utf8") as f:
               f.write(tomlkit.dumps(data))
           EOF
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Commit version bump
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
           git add pyproject.toml
           git commit -m "chore: bump version to ${{ steps.next.outputs.new_version }}"
 
