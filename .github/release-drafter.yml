@@ -3,7 +3,7 @@ tag-template: "v$NEXT_PATCH_VERSION"
 tag-prefix: ""
 
 template: |
-  ## 🚀 Release Notes
+  ## Release Notes
   $CHANGES
 
   ## Contributors
