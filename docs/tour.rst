@@ -129,13 +129,49 @@ Here, you can spawn off a background thread to run any function, out-of-request:
 GraphQL
 -------
 
-Dyne provides built-in support for integrating **GraphQL** using both **Strawberry** and **Graphene** libraries. 
-With either library, you can create GraphQL schemas containing queries, mutations, or both, and expose them via a `GraphQLView`. 
+Dyne provides built-in support for integrating ``GraphQL`` using both ``Strawberry`` and ``Graphene``.
 
-This view is added to a Dyne API route, such as `/graphql`. The endpoint can then be accessed either via a GraphQL client, your browser, or tools like Postman.
-Visiting the endpoint will render a *GraphiQL* instance, in the browser, allowing you to easily interact with your GraphQL schema.
+To ensure consistent behavior, proper plugin isolation, and reliable runtime validation, Dyne requires that GraphQL schemas be created using Dyne-provided Schema classes, 
+which act as thin wrappers around the underlying GraphQL backends.
 
-The following sections provide examples of how to use **Strawberry** and **Graphene** with Dyne.
+With either backend, you can define GraphQL schemas containing queries, mutations, or both, and expose them via a ``GraphQLView``.
+
+The view is added to a Dyne API route (for example, ``/graphql``). The endpoint can then be accessed through a GraphQL client, your browser, or tools such as Postman.
+When accessed from a browser, the endpoint will render a GraphiQL interface, allowing you to easily explore and interact with your GraphQL schema.
+
+
+**Installation**
+Dyne’s GraphQL support is provided via optional dependencies.
+Install Dyne along with the backend you intend to use.
+
+* Strawberry:
+.. code-block:: bash
+
+    pip install dyne[strawberry]
+
+
+* Graphene:
+.. code-block:: bash
+
+    pip install dyne[graphene]
+
+Only install the backend(s) you plan to use. Dyne does not auto-detect GraphQL backends.
+
+
+**Choosing a GraphQL Backend**
+
+Dyne does not auto-detect which GraphQL backend you are using.
+
+Instead, you explicitly opt into a backend by importing the corresponding Schema class:
+
+* ``dyne.ext.graphql.strawberry.Schema``
+* ``dyne.ext.graphql.graphene.Schema``
+
+This explicit import ensures:
+
+* Clear backend selection
+* No accidental mixing of GraphQL backends
+* Predictable runtime behavior and better error messages
 
 
 .. contents::
@@ -145,13 +181,14 @@ The following sections provide examples of how to use **Strawberry** and **Graph
 1. Strawberry GraphQL
 ---------------------
 
-The following example demonstrates how to set up a **Strawberry** schema and route it through Dyne’s `GraphQLView`:
+The following example demonstrates how to set up a ``Strawberry`` schema and route it through Dyne’s ``GraphQLView``:
 
 .. code-block:: python
 
     import strawberry
     import dyne
     from dyne.ext.graphql import GraphQLView
+    from dyne.ext.graphql.strawberry import Schema
 
     api = dyne.API()
 
@@ -176,7 +213,7 @@ The following example demonstrates how to set up a **Strawberry** schema and rou
             return f"Hello {name}"
 
     # Create the schema
-    schema = strawberry.Schema(query=Query, mutation=Mutation)
+    schema = Schema(query=Query, mutation=Mutation)
 
     # Create GraphQL view and add it to the API
     view = GraphQLView(api=api, schema=schema)
@@ -196,6 +233,7 @@ The following example demonstrates how to set up a **Graphene** schema and route
     import graphene
     import dyne
     from dyne.ext.graphql import GraphQLView
+    from dyne.ext.graphql.graphene import Schema
 
     api = dyne.API()
 
@@ -223,13 +261,22 @@ The following example demonstrates how to set up a **Graphene** schema and route
             return f"Hello {name}"
 
     # Create the schema
-    schema = graphene.Schema(query=Query, mutation=Mutation)
+    schema = Schema(query=Query, mutation=Mutation)
 
     # Create GraphQL view and add it to the API
     view = GraphQLView(api=api, schema=schema)
     api.add_route("/graphql", view)
 
 Just like with **Strawberry**, Dyne’s `Request` and `Response` objects can be accessed in your GraphQL resolvers using ``info.context['request']`` and ``info.context['response']``.
+
+
+Important Notes
+---------------
+
+* Do not pass raw `strawberry.Schema`` or `graphene.Schema` instances directly to `GraphQLView`.
+* Always use the Schema class provided by Dyne for the backend you choose.
+* Mixing GraphQL backends in a single application is not supported and will raise a runtime error.
+* GraphQL support is optional and requires installing the appropriate extra.
 
 
 GraphQL Queries and Mutations
