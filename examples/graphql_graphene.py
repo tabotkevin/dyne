@@ -2,6 +2,7 @@ import graphene
 
 import dyne
 from dyne.ext.graphql import GraphQLView
+from dyne.ext.graphql.graphene import Schema
 
 api = dyne.API()
 
@@ -29,7 +30,7 @@ class Query(graphene.ObjectType):
         return f"Hello {name}"
 
 
-schema = graphene.Schema(query=Query, mutation=Mutation)
+schema = Schema(query=Query, mutation=Mutation)
 view = GraphQLView(api=api, schema=schema)
 
 api.add_route("/graphql", view)
