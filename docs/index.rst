@@ -31,9 +31,9 @@ A light weight Python async framework with batteries included.
 
    @api.route("/create", methods=["POST"])
    @api.authenticate(basic_auth, role="user")
-   @api.input(BookCreateSchema, location="form")
-   @api.output(BookSchema)
-   @api.expect(
+   @input(BookCreateSchema, location="form")
+   @output(BookSchema)
+   @expect(
        {
            401: "Invalid credentials",
        }
@@ -87,6 +87,7 @@ User Guides
    deployment
    testing
    api
+   maintainers
 
 
 Installing dyne
@@ -96,7 +97,9 @@ Installing dyne
 
     $ pip install dyne
 
-Only **Python 3.8+** and above is supported.
+    $ pip install dyne[strawberry]  # example Optional dependencies install.
+
+Only **Python 3.10+** and above is supported.
 
 
 The Basic Idea

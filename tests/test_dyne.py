@@ -941,105 +941,214 @@ def test_route_without_endpoint(api):
 
 
 def test_pydantic_input_request_validation(api):
-    class ItemSchema(BaseModel):
-        name: str
+    from pydantic import AliasGenerator, BaseModel, ConfigDict
+
+    from dyne.ext.io.pydantic import input
+
+    class BookSchema(BaseModel):
+        title: str
+        price: float
+
+    class HeaderSchema(BaseModel):
+        x_version: str
+
+        model_config = ConfigDict(
+            # Accept the alias even if the framework lowercased it and try converting 'x-version' to 'x_version'
+            alias_generator=AliasGenerator(
+                validation_alias=lambda field_name: field_name.replace("_", "-"),
+            ),
+            populate_by_name=True,
+        )
 
     class CookiesSchema(BaseModel):
         max_age: int
         is_cheap: bool
 
-    @api.route("/create", methods=["POST"])
-    @api.input(ItemSchema)
-    async def create_item(req, resp, *, data):
+    class QuerySchema(BaseModel):
+        page: int = 1
+        limit: int = 10
+
+    # Media (JSON body)
+    @api.route("/book", methods=["POST"])
+    @input(BookSchema)
+    async def create_book(req, resp, *, data):
         resp.text = "created"
 
-        assert data == {"name": "Test Item"}
+        assert data == {"price": 39.99, "title": "Pragmatic Programmer"}
 
-    # Cookies routes
+    # Query parameters
+    @api.route("/books")
+    @input(QuerySchema, location="query")
+    async def list_books(req, resp, *, query):
+        assert query == {"page": 2, "limit": 20}
+
+    # Headers
+    @api.route("/book/{id}", methods=["POST"])
+    @input(HeaderSchema, location="headers")
+    async def book_version(req, resp, *, id, headers):
+        assert headers == {"x_version": "2.4.5"}
+
+    # Cookies
     @api.route("/")
-    @api.input(CookiesSchema, location="cookies")
-    async def home_cookies(req, resp, *, cookies):
-        resp.text = "Welcome"
+    @input(CookiesSchema, location="cookies")
+    async def home(req, resp, *, cookies):
+        print(cookies)
+        resp.text = "Welcome (Pydantic)"
+        assert cookies == {"max_age": 123, "is_cheap": True}
 
+    # Stacked inputs (cookies + body)
+    @api.route("/store", methods=["POST"])
+    @input(CookiesSchema, location="cookies", key="cookies")
+    @input(BookSchema)
+    async def store(req, resp, *, cookies, data):
+        print(f"Cookies: {cookies}")
+        assert data == {"title": "Pragmatic Programmer", "price": 39.99}
         assert cookies == {"max_age": 123, "is_cheap": True}
 
     # Valid media
-    data = {"name": "Test Item"}
-    # resp_mock.media.return_value = data
-    response = api.client.post(api.url_for(create_item), json=data)
+    data = {"price": 39.99, "title": "Pragmatic Programmer"}
+    response = api.client.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "created"
+
+    # Valid params(query)
+    response = api.client.get(api.url_for(list_books), params={"page": 2, "limit": 20})
+    assert response.status_code == api.status.HTTP_200_OK
+
+    # Valid headers
+    response = api.client.post(
+        api.url_for(book_version, id=1), headers={"X-Version": "2.4.5"}
+    )
+    assert response.status_code == api.status.HTTP_200_OK
 
     # Valid  cookies
     client = api.client
     client.cookies = {"max_age": "123", "is_cheap": "True"}
-    response = client.get(api.url_for(home_cookies))
+    response = client.get(api.url_for(home))
     assert response.status_code == api.status.HTTP_200_OK
-    assert response.text == "Welcome"
+    assert response.text == "Welcome (Pydantic)"
 
-    # Invalid Pydantic data
-    data = {"name": [123]}  # Invalid data
-    response = api.client.post(api.url_for(create_item), json=data)
+    # Valid  input stacking
+    client = api.client
+    client.cookies = {"max_age": "123", "is_cheap": "True"}
+    response = client.post(
+        api.url_for(store), json={"price": 39.99, "title": "Pragmatic Programmer"}
+    )
+    assert response.status_code == api.status.HTTP_200_OK
+
+    # Invalid book data
+    data = {"title": 123}  # Invalid data
+    response = api.client.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status.HTTP_400_BAD_REQUEST
-    assert "error" in response.text
+    assert response.json() == {
+        "errors": {
+            "title": ["Input should be a valid string"],
+            "price": ["Field required"],
+        }
+    }
 
 
 def test_marshmallow_input_request_validation(api):
-    class ItemSchema(Schema):
-        name = fields.Str()
+    from marshmallow import Schema, fields
+
+    from dyne.ext.io.marshmallow import input
+
+    class BookSchema(Schema):
+        title = fields.String(required=True)
+        price = fields.Float(required=True)
+
+    class HeaderSchema(Schema):
+        x_version = fields.String(
+            data_key="X-Version",
+            required=True,
+        )
+
+    class CookiesSchema(Schema):
+        max_age = fields.Int(required=True)
+        is_cheap = fields.Bool(required=True)
 
     class QuerySchema(Schema):
         page = fields.Int(load_default=1)
         limit = fields.Int(load_default=10)
 
-    class HeaderSchema(Schema):
-        x_version = fields.String(data_key="X-Version", required=True)
-
-    @api.route("/create", methods=["POST"])
-    @api.input(ItemSchema)
-    async def create_item(req, resp, *, data):
+    # Media (JSON body)
+    @api.route("/book", methods=["POST"])
+    @input(BookSchema)
+    async def create_book(req, resp, *, data):
         resp.text = "created"
 
-        assert data == {"name": "Test Item"}
+        assert data == {"price": 39.99, "title": "Pragmatic Programmer"}
 
-    # Query(params) route
-    @api.route("/items")
-    @api.input(QuerySchema, location="query")
-    async def get_items(req, resp, *, query):
+    # Query parameters
+    @api.route("/books")
+    @input(QuerySchema, location="query")
+    async def list_books(req, resp, *, query):
         assert query == {"page": 2, "limit": 20}
 
-        resp.media = {"items": [{"name": "Scooter"}]}
-
-    # Headers routes
-    @api.route("/item/{id}", methods=["POST"])
-    @api.input(HeaderSchema, location="headers")
-    async def item(req, resp, *, id, headers):
-        """Header Pydantic"""
+    # Headers
+    @api.route("/book/{id}", methods=["POST"])
+    @input(HeaderSchema, location="headers")
+    async def book_version(req, resp, *, id, headers):
         assert headers == {"x_version": "2.4.5"}
 
-        resp.media = {"name": "Samsung Galaxy"}
+    # Cookies
+    @api.route("/")
+    @input(CookiesSchema, location="cookies")
+    async def home(req, resp, *, cookies):
+        print(cookies)
+        resp.text = "Welcome (Marshmallow)"
+        assert cookies == {"max_age": 123, "is_cheap": True}
 
-    # Valid data
-    data = {"name": "Test Item"}
-    response = api.client.post(api.url_for(create_item), json=data)
+    # Stacked inputs (cookies + body)
+    @api.route("/store", methods=["POST"])
+    @input(CookiesSchema, location="cookies", key="cookies")
+    @input(BookSchema)
+    async def store(req, resp, *, cookies, data):
+        print(f"Cookies: {cookies}")
+        assert data == {"title": "Pragmatic Programmer", "price": 39.99}
+        assert cookies == {"max_age": 123, "is_cheap": True}
+
+    # Valid media
+    data = {"price": 39.99, "title": "Pragmatic Programmer"}
+    response = api.client.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status.HTTP_200_OK
     assert response.text == "created"
 
     # Valid params(query)
-    response = api.client.get(api.url_for(get_items), params={"page": 2, "limit": 20})
+    response = api.client.get(api.url_for(list_books), params={"page": 2, "limit": 20})
     assert response.status_code == api.status.HTTP_200_OK
-    assert response.json() == {"items": [{"name": "Scooter"}]}
 
     # Valid headers
-    response = api.client.post(api.url_for(item, id=1), headers={"X-Version": "2.4.5"})
+    response = api.client.post(
+        api.url_for(book_version, id=1), headers={"X-Version": "2.4.5"}
+    )
     assert response.status_code == api.status.HTTP_200_OK
-    assert response.json() == {"name": "Samsung Galaxy"}
 
-    # Invalid data
-    data = {"name": [123]}  # Invalid data
-    response = api.client.post(api.url_for(create_item), json=data)
+    # Valid  cookies
+    client = api.client
+    client.cookies = {"max_age": "123", "is_cheap": "True"}
+    response = client.get(api.url_for(home))
+    assert response.status_code == api.status.HTTP_200_OK
+    assert response.text == "Welcome (Marshmallow)"
+
+    # Valid  input stacking
+    client = api.client
+    client.cookies = {"max_age": "123", "is_cheap": "True"}
+    response = client.post(
+        api.url_for(store), json={"price": 39.99, "title": "Pragmatic Programmer"}
+    )
+    assert response.status_code == api.status.HTTP_200_OK
+
+    # Invalid book data
+    data = {"title": 123}  # Invalid data
+    response = api.client.post(api.url_for(create_book), json=data)
     assert response.status_code == api.status.HTTP_400_BAD_REQUEST
-    assert "error" in response.text
+    assert response.json() == {
+        "errors": {
+            "title": ["Not a valid string."],
+            "price": ["Missing data for required field."],
+        }
+    }
 
 
 def test_endpoint_request_methods(api):
@@ -1107,6 +1216,8 @@ def test_endpoint_request_methods(api):
 
 
 def test_pydantic_response_schema_serialization(api):
+    from dyne.ext.io.pydantic import input, output
+
     class Base(DeclarativeBase):
         pass
 
@@ -1142,8 +1253,8 @@ def test_pydantic_response_schema_serialization(api):
         id: int
 
     @api.route("/create", methods=["POST"])
-    @api.input(BookIn)
-    @api.output(BookOut)
+    @input(BookIn)
+    @output(BookOut)
     async def create_book(req, resp, *, data):
         """Create book"""
 
@@ -1154,7 +1265,7 @@ def test_pydantic_response_schema_serialization(api):
         resp.obj = book
 
     @api.route("/all")
-    @api.output(BookOut)
+    @output(BookOut)
     async def all_books(req, resp):
         """Get all books"""
 
@@ -1179,6 +1290,8 @@ def test_pydantic_response_schema_serialization(api):
 
 
 def test_marshmallow_response_schema_serialization(api):
+    from dyne.ext.io.marshmallow import input, output
+
     class Base(DeclarativeBase):
         pass
 
@@ -1212,8 +1325,8 @@ def test_marshmallow_response_schema_serialization(api):
             model = Book
 
     @api.route("/create", methods=["POST"])
-    @api.input(BookSchema)
-    @api.output(BookSchema)
+    @input(BookSchema)
+    @output(BookSchema)
     async def create_book(req, resp, *, data):
         """Create book"""
 
@@ -1224,7 +1337,7 @@ def test_marshmallow_response_schema_serialization(api):
         resp.obj = book
 
     @api.route("/all")
-    @api.output(BookSchema)
+    @output(BookSchema(many=True))
     async def all_books(req, resp):
         """Get all books"""
 

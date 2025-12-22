@@ -154,13 +154,13 @@ A ``POST`` request to ``/incoming`` will result in an immediate response of ``{'
 File Upload
 -----------
 
-Dyne provides two ways to handle file uploads: using the `@api.input` decorator with either Marshmallow or Pydantic schemas, 
-or via native file upload support.
+Dyne provides two ways to handle file uploads: using the `@input` decorator with either Marshmallow or Pydantic schemas, 
+from their respective extensions or via native file upload support.
 
-1. Uploading Files with `@api.input` Decorator
+1. Uploading Files with `@input` Decorator
 ----------------------------------------------
 
-You can define file upload logic using Marshmallow or Pydantic schemas. 
+You can define file upload logic using Marshmallow or Pydantic schemas from respective extensions. 
 Each approach offers different features for handling file validation and input processing.
 
 a. Uploading with a `Marshmallow` Schema
@@ -175,13 +175,15 @@ ensuring that uploaded files meet specified constraints.
 .. code-block:: python
 
     from marshmallow import Schema, fields
-    from dyne.fields.marshmallow import FileField
+    from dyne.ext.io.marshmallow.fields import FileField
+    from dyne.ext.io.marshmallow import input
 
     class UploadSchema(Schema):
         description = fields.Str()
         image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
 
-    @api.input(UploadSchema, location="form")
+    @api.route("/upload", methods=["POST"])
+    @input(UploadSchema, location="form")
     async def upload(req, resp, *, data):
         image = data.pop("image")
         await image.save(image.filename)  # The image is already validated for extension and size
@@ -203,7 +205,8 @@ If validation is needed, it must be handled manually.
 .. code-block:: python
 
     from pydantic import BaseModel, Field
-    from dyne.fields.pydantic import File
+    from dyne.ext.io.pydantic.fields import File
+    from dyne.ext.io.pydantic import input
 
     class UploadSchema(BaseModel):
         description: str
@@ -212,7 +215,8 @@ If validation is needed, it must be handled manually.
         class Config:
             from_attributes = True
 
-    @api.input(UploadSchema, location="form")
+    @api.route("/upload", methods=["POST"])
+    @input(UploadSchema, location="form")
     async def upload(req, resp, *, data):
         image = data.pop("image")
         await image.save(image.filename)  # Perform validation before saving

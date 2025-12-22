@@ -1,12 +1,12 @@
 import os
 from typing import Optional
 
-from marshmallow import Schema, fields
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 import dyne
+from dyne.ext.io.pydantic import input, output
 
 api = dyne.API()
 
@@ -40,23 +40,16 @@ session.commit()
 
 
 @api.schema("PydanticBookCreate")
-class PydanticBookSchema(BaseModel):
+class BookSchema(BaseModel):
     id: Optional[int] = None
     price: float
     title: str
     model_config = ConfigDict(from_attributes=True)
 
 
-@api.schema("MarshmallowBookCreate")
-class MarshmallowBookSchema(Schema):
-    id = fields.Integer(dump_only=True)
-    price = fields.Float()
-    title = fields.Str()
-
-
 @api.route("/create", methods=["POST"])
-@api.input(MarshmallowBookSchema)
-@api.output(MarshmallowBookSchema)
+@input(BookSchema)
+@output(BookSchema)
 async def create(req, resp, *, data):
     """Create book"""
 
@@ -68,7 +61,7 @@ async def create(req, resp, *, data):
 
 
 @api.route("/all", methods=["POST"])
-@api.output(PydanticBookSchema)
+@output(BookSchema)
 async def all_books(req, resp):
     """Get all books"""
 

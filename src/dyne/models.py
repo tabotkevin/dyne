@@ -257,55 +257,6 @@ class Request:
         else:
             return await format(self)
 
-    async def validate(self, schema, location="media", unknown=None):
-        """Validates data from a specified request location against a
-           Marshmallow or Pydantic schemas.
-
-        :param model: Marshmallow or Pydantic schemas.
-        :param location: headers, params or media
-        :param unknown: A value to pass for ``unknown`` when calling the
-           marshmallow schema's ``load`` method. Defaults to ``marshmallow.EXCLUDE`` for headers and cookies.
-        """
-
-        data = (
-            self.headers
-            if location.startswith("header")
-            else (
-                self.cookies
-                if location.startswith("cookie")
-                else (
-                    self.params.normalize()
-                    if location in ["params", "query"]
-                    else await self.media()
-                )
-            )
-        )
-
-        if (
-            not unknown
-            and location.startswith("header")
-            or location.startswith("cookie")
-        ):
-            unknown = ma.EXCLUDE
-
-        try:
-            if issubclass(schema, ma.Schema):  # marshmallow.
-                self._data = schema().load(data, unknown=unknown)
-            elif issubclass(schema, pd.BaseModel):  # pydantic.
-                self._data = schema(**data).model_dump()
-            else:
-                self._data = dict(errors="Unsupported schema")
-        except (ma.ValidationError, pd.ValidationError) as e:
-            self._data = {
-                "errors": (
-                    {k: str(v) for k, v in e.errors()[0].items() if k != "input"}
-                    if isinstance(e, pd.ValidationError)
-                    else e.messages
-                )
-            }
-
-        return self._data
-
 
 def content_setter(mimetype):
     def getter(instance):

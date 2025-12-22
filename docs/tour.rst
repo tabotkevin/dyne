@@ -7,13 +7,17 @@ Introduction
 Dyne brings simplicity and elegance to API development, offering built-in features such as:
 
 - **Authentication**: Support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
-- **Input Validation**: The `@api.input` decorator makes validating request bodies easy.
-- **Response Serialization**: Use the `@api.output` decorator to serialize responses automatically.
+- **Input Validation**: The `@input` decorator makes validating request bodies easy.
+- **Response Serialization**: Use the `@output` decorator to serialize responses automatically.
 - **OpenAPI Documentation**: Full self-generated OpenAPI documentation with seamless integration for both `Pydantic` and `Marshmallow` schemas.
 
 Here's how you can get started:
 
 ::
+    
+    import dyne
+    from dyne.ext.auth import BasicAuth
+
 
     api = dyne.API()
 
@@ -53,9 +57,11 @@ This example demonstrates a clean and minimal API endpoint for creating a new bo
         title = Column(String)
         cover = Column(String, nullable=True)
 
-**Schemas: Marshmellow**
+**Schemas: Marshmallow**
 
 .. code-block:: python
+
+    from dyne.ext.io.marshmallow.fields import FileField
 
     class BookSchema(Schema):
         id = fields.Integer(dump_only=True)
@@ -71,6 +77,8 @@ This example demonstrates a clean and minimal API endpoint for creating a new bo
 **Endpoint:**
 
 .. code-block:: python
+
+    from dyne.ext.io.marshmallow import input, output, expect
 
     @api.route("/create", methods=["POST"])
     @api.authenticate(basic_auth, role="user")
@@ -354,190 +362,274 @@ For more advanced configurations or additional examples, refer to the respective
 
 Request validation
 ------------------
-Dyne provides built-in support for validating requests from various sources such as the request body (JSON, form, YAML), headers, cookies, and query parameters against Marshmallow and Pydantic schemas. This is done using the `@input` decorator, which specifies the location for validation. Supported locations are `media`, `headers`, `cookies`, and `query(params)`. 
 
-Optionally, you can provide a `key` variable, which acts as the name of the variable to be used in the endpoint. By default, the `key` is the value of the location, except for `media`, where the key is called `data` by default.
+Dyne provides specialized extensions for validating incoming requests against **Pydantic** models or **Marshmallow** schemas. Instead of a generic decorator, you import the `input` decorator specifically for the library you are using.
 
+Validation is supported for various sources:
 
-::
+* **media**: Request body (JSON, Form, YAML). This is the default.
+* **query**: URL query parameters.
+* **headers**: Request headers.
+* **cookies**: Browser cookies.
 
-    import time
+Data Injection
+~~~~~~~~~~~~~~
+
+Once validated, the data is injected into your handler as a keyword argument. 
+* By default, the argument name is the value of the ``location`` (e.g., ``query``, ``headers``).
+* For ``media``, the default argument name is ``data``.
+* You can override this using the ``key`` parameter.
+
+Pydantic Validation
+~~~~~~~~~~~~~~~~~~~
+
+To use Pydantic, import the decorator from `dyne.ext.io.pydantic`.
+
+.. code-block:: python
+
+  from pydantic import BaseModel, Field
+  from dyne.ext.io.pydantic import input
+  import dyne
+
+  api = dyne.API()
+
+  class Book(BaseModel):
+      title: str
+      price: float = Field(gt=0)
+
+  @api.route("/books", methods=["POST"])
+  @input(Book)  # Default location="media", default key="data"
+  async def create_book(req, resp, *, data: Book):
+      # 'data' is a validated Pydantic instance
+      print(f"Creating {data['title']}")
+      resp.media = {"status": "created"}
+
+Marshmallow Validation
+~~~~~~~~~~~~~~~~~~~~~~
+
+To use Marshmallow, import the decorator from ``dyne.ext.io.marshmallow``.
+
+.. code-block:: python
 
     from marshmallow import Schema, fields
-    from pydantic import BaseModel
-
+    from dyne.ext.io.marshmallow import input
     import dyne
 
     api = dyne.API()
 
+    class QuerySchema(Schema):
+        page = fields.Int(load_default=1)
+        limit = fields.Int(load_default=10)
 
-    @api.schema("BookSchema")
-    class BookSchema(BaseModel):  # Pydantic schema
-        price: float
-        title: str
+    @api.route("/books", methods=["GET"])
+    @input(QuerySchema, location="query") # key defaults to "query"
+    async def list_books(req, resp, *, query):
+        # 'query' is a validated dictionary
+        page = query['page']
+        resp.media = {"results": [], "page": page}
 
+Advanced Locations and Keys
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    class QuerySchema(Schema):  # Marshmellow schema
-        page = fields.Int(missing=1)
-        limit = fields.Int(missing=10)
+You can validate multiple sources on a single endpoint and customize the variable names injected into the function.
 
+.. code-block:: python
 
-    # Media routes
-    @api.route("/book", methods=["POST"])
-    @api.input(BookSchema)  # default location is `media` default media key is `data`
-    async def book_create(req, resp, *, data):
-        @api.background.task
-        def process_book(book):
-            time.sleep(2)
-            print(book)
+  class HeaderSchema(BaseModel):
+      x_api_key: str = Field(alias="X-API-Key")
 
-        process_book(data)
-        resp.media = {"msg": "created"}
+  @api.route("/secure-data")
+  @input(HeaderSchema, location="headers")
+  @input(QuerySchema, location="query", key="params")
+  async def secure_endpoint(req, resp, *, headers, params):
+      # Query params are available as 'params'
+      print(f"API Keys: {headers['x_api_key']})
+      print(f"Query: {params}")
+      resp.media = {"data": "secret stuff"}
 
+Key Differences
+~~~~~~~~~~~~~~~
 
-    # Query(params) route
-    @api.route("/books")
-    @api.input(QuerySchema, location="query")
-    async def get_books(req, resp, *, query):
-        print(query)  # e.g {'page': 2, 'limit': 20}
-        resp.media = {"books": [{"title": "Python", "price": 39.00}]}
-
-
-    # Media requests
-    r = api.client.post("http://;/book", json={"price": 9.99, "title": "Pydantic book"})
-    print(r.json())
-
-    # Query(params) requests
-    r = api.client.get("http://;/books?page=2&limit=20")
-    print(r.json())
++-----------------+-----------------------------------+-----------------------------------------+
+| Feature         | Pydantic                          | Marshmallow                             |
++=================+===================================+=========================================+
+| **Import**      | ``dyne.ext.io.pydantic.input``    | ``dyne.ext.io.marshmallow.input``       |
++-----------------+-----------------------------------+-----------------------------------------+
+| **Return Type** | A native Python dictionary.       | A native Python dictionary.             | 
++-----------------+-----------------------------------+-----------------------------------------+
+| **OpenAPI**     | Automatically generates JSON      | Integrates with APISpec                 |
+|                 | Schema from model fields.         | Marshmallow plugin.                     |
++-----------------+-----------------------------------+-----------------------------------------+
 
 
 Response Serialization
 ----------------------
-Dyne provides the functionality to serialize SQLAlchemy objects or queries into JSON responses using Marshmallow or Pydantic schemas. This is achieved by using the `@output` decorator and setting `resp.obj` within the endpoint, which allows Dyne to deserialize the response as specified by the schema.
 
-This decorator also supports parameters such as `header`, which defines a schema for the response headers, and `description`, which can be used to provide a description in place of a status code for successful responses.
+Dyne simplifies the process of converting Python objects, SQLAlchemy models, or database queries into JSON responses. This is managed by the `@output` decorator. Instead of manually assigning data to `resp.media`, you assign your data to `resp.obj`, and the extension handles the serialization based on the provided schema.
 
+The `@output` decorator supports:
 
-::
+* **status_code**: The HTTP status code for the response (default is 200).
+* **header**: A schema to validate and document response headers.
+* **description**: A string used for OpenAPI documentation to describe the response.
 
-    import os
-    from typing import Optional
+Pydantic Output
+~~~~~~~~~~~~~~~
 
-    from marshmallow import Schema, fields
+To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``. 
+
+**Note:** When working with SQLAlchemy or other ORMs, ensure your Pydantic model is configured with ``from_attributes=True`` (Pydantic V2) or ``orm_mode=True`` (Pydantic V1).
+
+.. code-block:: python
+
     from pydantic import BaseModel, ConfigDict
-    from sqlalchemy import Column, Float, Integer, String, create_engine
-    from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
+    from dyne.ext.io.pydantic import output
     import dyne
 
     api = dyne.API()
 
-
     # Define an example SQLAlchemy model
-    class Book(DeclarativeBase):
+    class Book(Base):
         __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
         title = Column(String)
 
-
-    # Create tables in the database
-    engine = create_engine("sqlite:///db", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(engine)
-
-    # Create a session
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    book1 = Book(price=9.99, title="Harry Potter")
-    session.add(book1)
-    session.commit()
-
-
-    @api.schema("BookSchema")
     class BookSchema(BaseModel):
-        id: Optional[int] = None
-        price: float
+        id: int
         title: str
+        price: float
+        
+        # Required for SQLAlchemy integration
         model_config = ConfigDict(from_attributes=True)
 
-
-    @api.route("/create", methods=["POST"])
-    @api.input(BookSchema)
-    @api.output(BookSchema)
-    async def create(req, resp, *, data):
-        """Create book"""
-
-        book = Book(**data)
-        session.add(book)
-        session.commit()
-
+    @api.route("/books/{id}")
+    @output(BookSchema)
+    async def get_book(req, resp, id):
+        # Fetch a SQLAlchemy object
+        book = session.query(Book).get(id)
+        
+        # Assign the object to resp.obj
+        # The extension converts the ORM model to JSON automatically
         resp.obj = book
 
+    @api.route("/all-books")
+    @output(BookSchema)
+    async def list_all(req, resp):
+        # resp.obj can also be a list or a query object
+        resp.obj = session.query(Book).all()
 
-    @api.route("/all", methods=["POST"])
-    @api.output(BookSchema)
-    async def all_books(req, resp):
-        """Get all books"""
+Marshmallow Output
+~~~~~~~~~~~~~~~~~~
 
-        resp.obj = session.query(Book)
+To serialize using Marshmallow, import the decorator from `dyne.ext.io.marshmallow`.
 
+.. code-block:: python
 
-    r = api.client.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
-    print(r.json())  # {'id': 3, 'price': 11.99, 'title': 'Monty Python'}
-
-    r = api.client.post("http://;/all")
-    print(r.json())  # [{'id': 1, 'price': 9.99, 'title': 'Harry Potter'}, {'id': 2, 'price': 11.99, 'title': 'Monty Python'}]
-
-
-Other responses
--------
-The `@expect` decorator accepts a dictionary argument containing response status codes as keys and their corresponding documentation as values.
-
-To include text descriptions for these responses, assign a description string to the value of each status code. Used in the `OpenAPI` documentation.
-
-::
-
+    from marshmallow import Schema, fields
+    from dyne.ext.io.marshmallow import output
     import dyne
 
     api = dyne.API()
 
+    # Define an example SQLAlchemy model
+    class Book(Base):
+        __tablename__ = "books"
+        id = Column(Integer, primary_key=True)
+        price = Column(Float)
+        title = Column(String)
 
-    @api.route("/book", methods=["POST"])
-    @api.expect(
-        {
-            401: "Invalid access or refresh token",
-            403: "Please verify your account",
-        }
-    )
-    async def book_create(req, resp):
-        resp.media = {"msg": "created"}
+    class BookSchema(Schema):
+        id = fields.Int()
+        title = fields.Str()
+        price = fields.Float()
 
+    books = BookSchema(many=True)
 
-@input / @output / @expect
--------
-Putting `@input`, `@output` and `@expect` together.
-
-::
-    
-    @api.route("/create", methods=["POST"])
-    @api.input(BookSchema)
-    @api.output(BookSchema)
-    @api.expect(
-        {
-            401: "Invalid access or refresh token",
-            409: "Book already exists",
-        }
-    )
-    async def create(req, resp, *, data):
-        """Create book"""
-
-        book = Book(**data)
-        session.add(book)
-        session.commit()
-
+    @api.route("/books/{id}")
+    @output(BookSchema)
+    async def get_book(req, resp, id):
+        # Fetch a SQLAlchemy object
+        book = session.query(Book).get(id)
+        
+        # Assign the object to resp.obj
+        # The extension converts the ORM model to JSON automatically
         resp.obj = book
+
+    @api.route("/all-books")
+    @output(books)
+    async def list_all(req, resp):
+        # resp.obj can also be a list or a query object
+        resp.obj = session.query(Book).all()
+
+
+Manual Documentation with ``@expect``
+-------------------------------------
+
+The `@expect` decorator is used primarily for **OpenAPI documentation**. It allows you to define expected response status codes and descriptions that aren't necessarily part of the primary "success" flow.
+
+This is particularly useful for documenting error states (401, 404, 409) or alternative success messages.
+
+.. code-block:: python
+
+  from dyne.ext.io.pydantic import expect
+
+  @api.route("/create-book", methods=["POST"])
+  @expect({
+      201: "Book created successfully",
+      401: "Invalid authentication credentials",
+      409: "A book with this ISBN already exists"
+  })
+  async def create_book(req, resp):
+      # Logic here...
+      resp.status_code = 201
+      resp.media = {"msg": "created"}
+
+
+Unified Example: ``@input``, ``@output``, and ``@expect``
+---------------------------------------------------------
+
+In a production endpoint, you will typically use all three decorators together to create a fully validated and documented API.
+
+.. code-block:: python
+
+  from dyne.ext.io.pydantic import input
+  from dyne.ext.io.pydantic import output
+  from dyne.ext.io.pydantic import expect
+
+  @api.route("/update-price/{id}", methods=["PATCH"])
+  @input(PriceUpdateSchema)     # Validate request body
+  @output(BookSchema)           # Serialize updated ORM object
+  @expect({                        # Document potential errors
+      403: "Insufficient permissions",
+      404: "Book not found"
+  })
+  async def update_book_price(req, resp, id, *, data):
+      book = session.query(Book).get(id)
+      if not book:
+          resp.status_code = 404
+          return
+          
+      book.price = data.price
+      session.commit()
+
+      # The updated 'book' object is serialized back to the client
+      resp.obj = book
+
+
+Summary of Decorators
+~~~~~~~~~~~~~~~~~~~~~
+
+
++-----------------+------------------------------------------+---------------------------------------+
+| Decorator       | Primary Purpose                          | Core Mechanism                        |
++=================+==========================================+=======================================+
+| ``@input``      | Request Validation                       | Injects data into handler kwargs.     |
++-----------------+------------------------------------------+---------------------------------------+
+| ``@output``     | Response Serialization                   | Converts ``resp.obj`` to JSON.        |
++-----------------+------------------------------------------+---------------------------------------+
+| ``@expect``     | Documentation                            | Adds responses to OpenAPI spec.       |
++-----------------+------------------------------------------+---------------------------------------+
 
 
 Authentication
