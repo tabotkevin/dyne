@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from dyne.fields.pydantic import File
+from dyne.ext.io.pydantic.fields import File
 
 try:
     from typing import _AnnotatedAlias
@@ -12,8 +12,8 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
 from dyne import status
-from dyne.ext.auth import BasicAuth, DigestAuth, TokenAuth
-from dyne.fields.mashmellow import FileField
+from dyne.ext.auth.backends import BasicAuth, DigestAuth, TokenAuth
+from dyne.ext.io.marshmallow.fields import FileField
 from dyne.statics import DEFAULT_OPENAPI_THEME, OPENAPI_THEMES
 from dyne.templates import Templates
 

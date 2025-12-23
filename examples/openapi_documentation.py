@@ -4,9 +4,10 @@ from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 import dyne
-from dyne.ext.auth import BasicAuth
-from dyne.fields.mashmellow import FileField
-from dyne.fields.pydantic import File
+from dyne.ext.auth import authenticate
+from dyne.ext.auth.backends import BasicAuth
+from dyne.ext.io.marshmallow import expect, input, output
+from dyne.ext.io.marshmallow.fields import FileField
 
 doc = """
 API Documentation
@@ -96,21 +97,11 @@ class BookCreateSchema(Schema):
     image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
 
 
-@api.schema("PydanticBookCreateSchema")
-class PydanticBookCreateSchema(BaseModel):
-    price: float
-    title: str
-    image: File = Field(...)
-
-    class Config:
-        from_attributes = True
-
-
 @api.route("/create", methods=["POST"])
-@api.authenticate(basic_auth, role="user")
-@api.input(BookCreateSchema, location="form")
-@api.output(BookSchema)
-@api.expect(
+@authenticate(basic_auth, role="user")
+@input(BookCreateSchema, location="form")
+@output(BookSchema)
+@expect(
     {
         401: "Invalid credentials",
     }
@@ -119,7 +110,7 @@ async def create(req, resp, *, data):
     """Create book"""
 
     image = data.pop("image")
-    await image.save(image.filename)  # image already validated for extension and size
+    await image.asave(image.filename)  # image already validated for extension and size
 
     book = Book(**data, cover=image.filename)
     session.add(book)
@@ -129,8 +120,8 @@ async def create(req, resp, *, data):
 
 
 @api.route("/book/{id}", methods=["POST"])
-@api.authenticate(basic_auth)
-@api.output(BookSchema)
+@authenticate(basic_auth)
+@output(BookSchema)
 async def book(req, resp, *, id):
     """Get a book"""
 
@@ -138,8 +129,8 @@ async def book(req, resp, *, id):
 
 
 @api.route("/all", methods=["GET"])
-@api.authenticate(basic_auth)
-@api.output(BookSchema)
+@authenticate(basic_auth)
+@output(BookSchema)
 async def all_books(req, resp):
     """Get all books"""
 

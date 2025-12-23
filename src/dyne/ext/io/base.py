@@ -21,7 +21,7 @@ class UploadFile(BaseFile):
         if not self.size:
             self._size()
 
-    async def save(self, destination, buffer_size=16384):
+    async def asave(self, destination, buffer_size=16384):
         close_destination = False
 
         if hasattr(destination, "__fspath__"):

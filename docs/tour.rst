@@ -632,96 +632,100 @@ Summary of Decorators
 +-----------------+------------------------------------------+---------------------------------------+
 
 
+
 Authentication
---------------
+______________
 
-This part explains how to use authentication mechanisms in Dyne, including `BasicAuth`, `TokenAuth`, `DigestAuth`, and `MultiAuth`.
-It also includes examples of custom error handling and role-based authorization.
+Dyne provides a robust authentication system through its ``auth`` extension. By separating the **Backend** logic (how credentials are verified) from the **Decorator** (how the route is protected), Dyne allows for a highly flexible security architecture.
 
-Note: In the `verify_password`, `verify_token`, and `get_password` callbacks, you can return any object (or class) that represents your `user`. 
-The authenticated user can then be accessed through `request.state.user`.
+All authentication backends are located in ``dyne.ext.auth.backends``, while the protection decorator is in ``dyne.ext.auth``.
+
+The User Object
+~~~~~~~~~~~~~~~
+
+In the ``verify_password``, ``verify_token``, or ``get_password`` callbacks, you can return any object (e.g., a database model, a dictionary, or a string) that represents your user.
+
+Once authenticated, this object is automatically attached to the request and can be accessed within your handlers via:
+
+.. code-block:: python
+
+  username = req.state.user
 
 
 Basic Authentication
---------------------
-`BasicAuth` verifies user credentials (username and password) and provides access to protected routes.
+~~~~~~~~~~~~~~~~~~~~
 
-Sample code:
+``BasicAuth`` verifies a username and password sent via the standard HTTP Basic Auth header.
 
 .. code-block:: python
 
     import dyne
-    from dyne.ext.auth import BasicAuth
+    from dyne.ext.auth import authenticate
+    from dyne.ext.auth.backends import BasicAuth
 
     api = dyne.API()
-
     users = dict(john="password", admin="password123")
 
     basic_auth = BasicAuth()
 
     @basic_auth.verify_password
     async def verify_password(username, password):
-        if username in users and users.get(username) == password:
+        if users.get(username) == password:
             return username
         return None
 
-    @basic_auth.error_handler
-    async def error_handler(req, resp, status_code=401):
-        resp.text = "Basic Custom Error"
-        resp.status_code = status_code
+    @api.route("/greet")
+    @authenticate(basic_auth)
+    async def basic_greet(req, resp):
+        resp.text = f"Hello, {req.state.user}!"
 
-    @api.route("/{greeting}")
-    @api.authenticate(basic_auth)
-    async def basic_greet(req, resp, *, greeting):
-        resp.text = f"{greeting}, {req.state.user}!"
 
-Make a basic authentication request:
+**Request Example:**
 
 .. code-block:: bash
 
-    http -a john:password get http://127.0.0.1:5042/Hello
+    http -a john:password GET http://localhost:5042/greet
 
 
 Token Authentication
---------------------
-`TokenAuth` authenticates requests based on bearer tokens.
+~~~~~~~~~~~~~~~~~~~~
 
-Sample code:
+``TokenAuth`` is used for Bearer token strategies (like JWTs or API Keys).
 
 .. code-block:: python
+
+    from dyne.ext.auth.backends import TokenAuth
+    from dyne.ext.auth import authenticate
 
     token_auth = TokenAuth()
 
     @token_auth.verify_token
     async def verify_token(token):
-        if token == "valid_token":
-            return "admin"
+        if token == "secret_key_123":
+            return "David"
         return None
 
-    @token_auth.error_handler
-    async def token_error_handler(req, resp, status_code=401):
-        resp.text = "Token Custom Error"
-        resp.status_code = status_code
+    @api.route("/dashboard")
+    @authenticate(token_auth)
+    async def secure_route(req, resp):
+        resp.media = {"data": "Top Secret", "username": req.state.user}
 
-    @api.route("/{greeting}")
-    @api.authenticate(token_auth)
-    async def token_greet(req, resp, *, greeting):
-        resp.text = f"{greeting}, {req.state.user}!"
 
-Make a token authentication request:
+**Request Example:**
 
 .. code-block:: bash
 
-    http get http://127.0.0.1:5042/Hi "Authorization: Bearer valid_token"
+    http GET http://localhost:5042/dashboard "Authorization: Bearer secret_key_123"
 
 
 Digest Authentication
----------------------
-`DigestAuth` is a more secure method than Basic Auth for protecting routes.
+~~~~~~~~~~~~~~~~~~~~~
 
-Sample code:
+``DigestAuth`` provides a more secure alternative to Basic Auth by using a challenge-response mechanism that never sends the password in plaintext.
 
 .. code-block:: python
+
+    from dyne.ext.auth.backends import DigestAuth
 
     digest_auth = DigestAuth()
 
@@ -729,220 +733,275 @@ Sample code:
     async def get_password(username):
         return users.get(username)
 
-    @digest_auth.error_handler
-    async def digest_error_handler(req, resp, status_code=401):
-        resp.text = "Digest Custom Error"
-        resp.status_code = status_code
+    @api.route("/greet")
+    @authenticate(digest_auth)
+    async def digest_greet(req, resp):
+        resp.text = f"Hello to {req.state.user}"
 
-    @api.route("/{greeting}")
-    @api.authenticate(digest_auth)
-    async def digest_greet(req, resp, *, greeting):
-        resp.text = f"{greeting}, {req.state.user}!"
 
-Make a digest authentication request:
+**Request Example:**
 
 .. code-block:: bash
 
-    http --auth-type=digest -a john:password get http://127.0.0.1:5042/Hola
+    http --auth-type=digest -a john:password get http://127.0.0.1:5042/greet
 
-You can also use precomputed hashes for passwords:
 
-Note: Make sure the `realm` is the same as that used in the `DigestAuth` backend
+Advanced Digest Authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For production environments, ``DigestAuth`` offers additional hooks to increase security and customize the challenge-response lifecycle.
+
+Using Precomputed Hashes
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Storing plaintext passwords in a database is a security risk. You can instead store precomputed **HA1** hashes. 
+
+.. note::
+    The ``realm`` used to compute the hash must match the ``realm`` defined in your ``DigestAuth`` backend (the default is "Authentication Required").
 
 .. code-block:: python
+
+    import hashlib
+    from dyne.ext.auth.backends import DigestAuth
+
+    digest_auth = DigestAuth(realm="My App")
 
     @digest_auth.get_password
     async def get_ha1_pw(username):
-        password = users.get(username)
-        realm = "Authentication Required"
+        password = users.get(username) # In reality, fetch from DB
+        realm = "My App"
+        # Precompute HA1: md5(username:realm:password)
         return hashlib.md5(f"{username}:{realm}:{password}".encode("utf-8")).hexdigest()
 
+Custom Nonce and Opaque Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Custom `Nonce` and `Opaque` generation and verification callbacks:
-
-Sample code:
+To support stateless horizontally-scaled environments or to implement custom expiration logic, you can override the generation and verification of `nonce` and `opaque` values.
 
 .. code-block:: python
 
-    my_nonce = "37e9292aecca04bd7e834e3e983f5d4"
-    my_opaque = "f8bf1725d7a942c6511cc7ed38c169fo"
+    import hmac
+
+    MY_SECRET_NONCE = "37e9292aecca04bd7e834e3e983f5d4"
+    MY_SECRET_OPAQUE = "f8bf1725d7a942c6511cc7ed38c169fo"
 
     @digest_auth.generate_nonce
     async def gen_nonce(request):
-        return my_nonce
+        return MY_SECRET_NONCE
 
     @digest_auth.verify_nonce
     async def ver_nonce(request, nonce):
-        return hmac.compare_digest(my_nonce, nonce)
+        return hmac.compare_digest(MY_SECRET_NONCE, nonce)
 
     @digest_auth.generate_opaque
     async def gen_opaque(request):
-        return my_opaque
+        return MY_SECRET_OPAQUE
 
     @digest_auth.verify_opaque
     async def ver_opaque(request, opaque):
-        return hmac.compare_digest(my_opaque, opaque)
+        return hmac.compare_digest(MY_SECRET_OPAQUE, opaque)
 
 
-Role-Based Authorization
-------------------------
-You can restrict routes to specific roles using role-based authorization with any of the backends.
+Custom Error Handling
+~~~~~~~~~~~~~~~~~~~~~
 
-Sample code using the `basic_auth` backends:
-
-.. code-block:: python
-
-    users = dict(john="password", admin="password123")
-    roles = {"john": "user", "admin": ["user", "admin"]}
-
-    @basic_auth.get_user_roles
-    async def get_user_roles(user):
-        return roles.get(user)
-
-    # Both `john` and `admin` can access this ruote
-    @api.route("/welcome")
-    @api.authenticate(basic_auth, role="user")
-    async def welcome(req, resp):
-        resp.text = f"welcome back {req.state.user}!"
-
-
-    # Only `admin` can access this ruote
-    @api.route("/admin")
-    @api.authenticate(basic_auth, role="admin")
-    async def admin(req, resp):
-        resp.text = f"Hello {req.state.user}, you are an admin!"
-
-Make a role-based  authentication request:
-
-.. code-block:: bash
-
-    http -a john:password get http://127.0.0.1:5042/welcome
-    http -a admin:password123 get http://127.0.0.1:5042/admin
-
-
-Multi Authentication
---------------------
-`MultiAuth` allows for multiple authentication schemes, enabling a flexible authentication strategy.
-
-Sample code:
+Every backend allows you to override the default error message and status_code by providing an ``error_handler``.
 
 .. code-block:: python
 
+    @basic_auth.error_handler
+    async def custom_error(req, resp, status_code):
+        resp.status_code = 401
+        resp.media = {"error": "Custom Authentication Failed"}
+
+
+Multi-Backend Authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``MultiAuth`` backend allows you to support multiple authentication methods on a single route. Dyne will attempt to authenticate the request using each backend in the order they are provided.
+
+.. code-block:: python
+
+    from dyne.ext.auth.backends import MultiAuth
+
+    # Support Token and Basic and Digest authentication
     multi_auth = MultiAuth(digest_auth, token_auth, basic_auth)
 
     @api.route("/{greeting}")
-    @api.authenticate(multi_auth)
+    @authenticate(multi_auth)
     async def multi_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
-Make a request using any of the configured authentication schemes:
+**Request Example:**
+
+You can now access this route using either a Bearer token, a Basic username/password **OR** a Digest username/password.
 
 .. code-block:: bash
 
-    # Basic Auth
+    # Option 1: Basic Auth
     http -a john:password get http://127.0.0.1:5042/Hi
 
-    # Token Auth
-    http get http://127.0.0.1:5042/Hi "Authorization: Bearer valid_token"
+    # Option 2: Token Auth
+    http get http://127.0.0.1:5042/Hi "Authorization: Bearer secret_key_123"
 
-    # Digest Auth
+    # Option 3: Digest Auth
     http --auth-type=digest -a john:password get http://127.0.0.1:5042/Hi
 
 
-Automatic OpenAPI Documentation Generation
-------------------------------------------
+Role-Based Authorization (RBAC)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Dyne includes built-in support for self-documentation through OpenAPI, with seamless integration for both `Marshmallow` and `Pydantic`.
-By using the `authenticate`, `input`, `output`, and `expect` decorators, you can easily generate self-documentation for your API endpoints, 
-covering authorization schemes, request bodies, responses, and errors.
+Authorization happens after authentication. You can restrict routes to specific roles by implementing the `get_user_roles` callback on any backend.
+
+How it Works
+
+```
+
+1. **Authentication:** The backend verifies the credentials and returns a ``user`` object.
+2. **Role Retrieval:** Dyne calls your ``get_user_roles(user)`` function.
+3. **Validation:** Dyne checks if the returned roles match the ``role`` requirement in the decorator.
+
+Sample code using the ``basic_auth`` backends:
+
+.. code-block:: python
+
+    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.auth import authenticate
+
+    basic_auth = BasicAuth()
+
+    # Define user roles (usually stored in a DB)
+    roles = {
+        "john": "user", 
+        "admin_user": ["user", "admin"]
+    }
+
+    @basic_auth.get_user_roles
+    async def get_user_roles(user):
+        # 'user' is the object returned by verify_password
+        return roles.get(user)
+
+    # Both `john`` and ``admin_user`` can access this ruote
+    @api.route("/dashboard")
+    @authenticate(basic_auth, role="user")
+    async def dashboard(req, resp):
+        resp.text = f"Welcome to the user dashboard, {req.state.user}!"
+
+    # Only ``admin_user`` can access this ruote
+    @api.route("/system-settings")
+    @authenticate(basic_auth, role="admin")
+    async def admin_settings(req, resp):
+        resp.text = "Sensitive administrative settings."
+
+Accessing Protected Routes
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using RBAC, the client sends credentials normally. The server handles the permission check internally.
+
+.. code-block:: bash
+
+    # Accessing user-level route
+    http -a john:password GET http://localhost:5042/dashboard
+
+    # Accessing admin-level route (will return 403 if roles don't match)
+    http -a admin_user:password123 GET http://localhost:5042/system-settings
 
 
-First, define the overview documentation string for your API. This string should provide a general description of your API.
+OpenAPI Documentation
+---------------------
 
-Example:
+Dyne generates an **OpenAPI 3.0.x** specification by inspecting the metadata left behind by your extension decorators. When you use decorators from `dyne.ext.io` or `dyne.ext.auth`, you are not just validating requests—you are also building your API's documentation.
 
-::
+Configuring the API Metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    doc = \"\"\" 
-    API Documentation
+To provide a title and description for your API, assign a docstring or a configuration object to your API instance. This information appears at the very top of your generated documentation.
 
-    This module provides an interface to interact with the user management API. It allows for operations such as retrieving user information, creating new users, updating existing users, and deleting users.
+.. code-block:: python
 
-    Base URL:
-        https://api.example.com/v1
-
-    Authentication:
-        All api.client require an API key. Include your API key in the Authorization header as follows:
-        Authorization: Bearer YOUR_API_KEY
-
-    For further inquiries or support, please contact support@example.com.
-    \"\"\"
-
-Next, assign this `doc` string to the `api.state.doc` variable in your Dyne application
-
-::
+    import dyne
 
     api = dyne.API()
-    api.state.doc = doc
 
+    api.state.doc = """ 
+    User Management API
+    -------------------
+    This API allows for comprehensive management of users and books.
 
-After setting the overview documentation, you can use the following decorators to define the specific behavior of each API endpoint.
+    **Base URL:** `https://api.example.com/v1`
+    **Support:** `support@example.com`
+    """
 
-- **`@api.authenticate`**: Specifies the authentication scheme for the endpoint.
-- **`@api.input`**: Defines the expected input schema for the request body.
-- **`@api.output`**: Specifies the output schema for the response.
-- **`@api.expect`**: Maps specific response codes to their descriptions, e.g., error responses.
+The Documentation Decorators
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Example: Creating a Book
-Below is an example demonstrating how to use these decorators for an endpoint that creates a new book entry, including file upload with validation.
+The documentation engine gathers data from four primary sources:
 
-::
+* **authenticate (auth extension)**: Documents security schemes (Basic, Bearer, Digest, etc.) and required roles.
+* **input (io extensions)**: Documents request bodies(josn, form and yaml), query parameters, cookies, headers and file uploads.
+* **output (io extensions)**: Documents the structure of successful (2xx) responses.
+* **expect (io extensions)**: Documents success and error codes (2xx, 3xx, 4xx, 5xx) and specific response messages.
+
+Full Example: Creating a Book with File Upload
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example demonstrates how the Marshmallow strategy captures a complex schema—including a file upload—and represents it in the OpenAPI spec as `multipart/form-data`.
+
+.. code-block:: python
 
     from marshmallow import Schema, fields
-    from dyne.fields.mashmellow import FileField
+    from dyne.ext.auth import authenticate
+    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.io.marshmallow import input, output, expect
+    from dyne.ext.io.marshmallow.fields import FileField
 
+    # Define your schemas
     class BookSchema(Schema):
         id = fields.Integer(dump_only=True)
         price = fields.Float()
         title = fields.Str()
-        cover = fields.Str()
+        cover_url = fields.Str()
 
     class BookCreateSchema(Schema):
-        price = fields.Float()
-        title = fields.Str()
-        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)  # Built-in File Extension and Size Validation.
+        price = fields.Float(required=True)
+        title = fields.Str(required=True)
+        # FileField is automatically documented as a 'binary' format string
+        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
 
-    @api.route("/create", methods=["POST"])
-    @api.authenticate(basic_auth, role="user")
-    @api.input(BookCreateSchema, location="form")
-    @api.output(BookSchema)
-    @api.expect(
-        {
-            401: "Invalid credentials",
-        }
-    )
-    async def create(req, resp, *, data):
-        """Create book"""
-        
+    basic_auth = BasicAuth()
+
+    @api.route("/book", methods=["POST"])
+    @authenticate(basic_auth, role="admin")
+    @input(BookCreateSchema, location="form")
+    @output(BookSchema, status_code=201)
+    @expect({401: "Unauthorized", 400: "Invalid file format"})
+    async def create_book(req, resp, *, data):
+        """
+        Create a new Book
+        ---
+        This endpoint allows admins to upload a book cover and metadata.
+        """
+
         image = data.pop("image")
-        await image.save(image.filename)  # The image is already validated for extension and size
+        await image.asave(f"uploads/{image.filename}") # The image is already validated for extension and size.
 
-        book = Book(**data, cover=image.filename)
+
+        book = Book(**data, cover_url=image.filename)
         session.add(book)
         session.commit()
 
         resp.obj = book
 
 
-Once you have decorated your endpoint and set the overview documentation, visit the `/docs` URL in your application to see the automatically generated API documentation, including:
+Viewing the Documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- API Overview (base URL, authentication, etc.)
-- Authorization scheme
-- Request body with input validation
-- Output response schema
-- Defined error responses
+Once your routes are decorated, Dyne automatically hosts the documentation at:
 
-This approach simplifies the process of maintaining up-to-date API documentation for your users.
+* **Interactive UI**: `/docs` (Swagger UI)
+* **Raw Specification**: `/openapi.json`
+
+This documentation is always in sync with your code. If you add a field to your Marshmallow / Pydantic model or change a required role in your Auth backend, the documentation updates automatically on the next refresh.
 
 
 Mount a WSGI / ASGI Apps (e.g. Flask, Starlette,...)

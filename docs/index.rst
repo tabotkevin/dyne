@@ -25,33 +25,52 @@ A light weight Python async framework with batteries included.
 
 .. code:: python
 
-   import dyne
+    import dyne
+    from marshmallow import Schema, fields
+    from dyne.ext.auth import authenticate
+    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.io.marshmallow import input, output, expect
+    from dyne.ext.io.marshmallow.fields import FileField
 
-   api = dyne.API()
+    api = dyne.API()
+    basic_auth = BasicAuth()
 
-   @api.route("/create", methods=["POST"])
-   @api.authenticate(basic_auth, role="user")
-   @input(BookCreateSchema, location="form")
-   @output(BookSchema)
-   @expect(
-       {
-           401: "Invalid credentials",
-       }
-   )
-   async def create(req, resp, *, data):
-       """Create book"""
+    # Define your schemas
+    class BookSchema(Schema):
+        id = fields.Integer(dump_only=True)
+        price = fields.Float()
+        title = fields.Str()
+        cover_url = fields.Str()
 
-       image = data.pop("image")
-       await image.save(image.filename)  # File already validated for extension and size.
+    class BookCreateSchema(Schema):
+        price = fields.Float(required=True)
+        title = fields.Str(required=True)
+        # FileField is automatically documented as a 'binary' format string
+        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
 
-       book = Book(**data, cover=image.filename)
-       session.add(book)
-       session.commit()
 
-       resp.obj = book
+    @api.route("/book", methods=["POST"])
+    @authenticate(basic_auth, role="admin")
+    @input(BookCreateSchema, location="form")
+    @output(BookSchema, status_code=201)
+    @expect({401: "Unauthorized", 400: "Invalid file format"})
+    async def create_book(req, resp, *, data):
+        """
+        Create a new Book
+        ---
+        This endpoint allows admins to upload a book cover and metadata.
+        """
 
-   if __name__ == "__main__":
-       api.run()
+        image = data.pop("image")
+        await image.asave(f"uploads/{image.filename}") # The image is already validated for extension and size.
+
+
+        book = Book(**data, cover_url=image.filename)
+        session.add(book)
+        session.commit()
+
+        resp.obj = book
+
 
 Powered by `Starlette <https://www.starlette.io/>`_.
 

@@ -1,11 +1,7 @@
 import os
-from functools import wraps
 from pathlib import Path
 
-import marshmallow as ma
-import pydantic as pd
 import uvicorn
-from sqlalchemy.orm import DeclarativeBase, Query
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
@@ -338,25 +334,6 @@ class API:
         :param **kwargs: Data to pass into the template.
         """
         return self.templates.render_string(source, *args, **kwargs)
-
-    def _annotate(self, f, **kwargs):
-        """Utilized to store essential route details for later inclusion in the
-        OpenAPI documentation of the route."""
-
-        if not hasattr(f, "_spec"):
-            f._spec = {}
-        for key, value in kwargs.items():
-            f._spec[key] = value
-
-    def authenticate(self, backend, **kwargs):
-        def decorator(f):
-            roles = kwargs.get("role")
-            if not isinstance(roles, list):  # pragma: no cover
-                roles = [roles] if roles is not None else []
-            self._annotate(f, backend=backend, roles=roles)
-            return backend.login_required(**kwargs)(f)
-
-        return decorator
 
     def serve(self, *, address=None, port=None, **options):
         """Runs the application with uvicorn. If the ``PORT`` environment
