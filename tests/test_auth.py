@@ -1,6 +1,7 @@
 import httpx
 
-from dyne.ext.auth import BasicAuth, DigestAuth, MultiAuth, TokenAuth
+from dyne.ext.auth import authenticate
+from dyne.ext.auth.backends import BasicAuth, DigestAuth, MultiAuth, TokenAuth
 
 users = dict(john="password", admin="password123")
 roles = {"john": "user", "admin": ["user", "admin"]}
@@ -59,7 +60,7 @@ async def get_user_roles(user):
 def test_basic_auth(api):
 
     @api.route("/{greeting}")
-    @api.authenticate(basic_auth)
+    @authenticate(basic_auth)
     async def basic_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
@@ -78,7 +79,7 @@ def test_basic_auth(api):
 def test_token_auth(api):
 
     @api.route("/{greeting}")
-    @api.authenticate(token_auth)
+    @authenticate(token_auth)
     async def token_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
@@ -98,7 +99,7 @@ def test_token_auth(api):
 # Digest Auth tests
 def test_digest_auth(api):
     @api.route("/{greeting}")
-    @api.authenticate(digest_auth)
+    @authenticate(digest_auth)
     async def digest_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
@@ -120,12 +121,12 @@ def test_digest_auth(api):
 # Role-based authorization tests
 def test_role_user(api):
     @api.route("/welcome")
-    @api.authenticate(basic_auth, role="user")
+    @authenticate(basic_auth, role="user")
     async def welcome(req, resp):
         resp.text = f"welcome back {req.state.user}!"
 
     @api.route("/admin")
-    @api.authenticate(basic_auth, role="admin")
+    @authenticate(basic_auth, role="admin")
     async def admin(req, resp):
         resp.text = f"Hello {req.state.user}, you are an admin!"
 
@@ -147,7 +148,7 @@ def test_role_user(api):
 # MultiAuth tests
 def test_multi_auth_basic_success(api):
     @api.route("/multi/{greeting}")
-    @api.authenticate(multi_auth)
+    @authenticate(multi_auth)
     async def multi_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 

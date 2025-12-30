@@ -1,10 +1,10 @@
 import graphene
 import strawberry
-
 from dyne.ext.graphql import GraphQLView
 
 
 def test_strawberry(api):
+    from dyne.ext.graphql.strawberry import Schema
 
     @strawberry.type
     class MessageResponse:
@@ -23,7 +23,7 @@ def test_strawberry(api):
         def hello(self, name: str = "stranger") -> str:
             return f"Hello {name}"
 
-    schema = strawberry.Schema(query=Query, mutation=Mutation)
+    schema = Schema(query=Query, mutation=Mutation)
     view = GraphQLView(api=api, schema=schema)
     api.add_route("/graphql", view)
 
@@ -69,6 +69,7 @@ def test_strawberry(api):
 
 
 def test_graphene(api):
+    from dyne.ext.graphql.graphene import Schema
 
     class Query(graphene.ObjectType):
         hello = graphene.String(name=graphene.String(default_value="stranger"))
@@ -90,7 +91,7 @@ def test_graphene(api):
     class Mutation(graphene.ObjectType):
         create_message = CreateMessage.Field()
 
-    schema = graphene.Schema(query=Query, mutation=Mutation)
+    schema = Schema(query=Query, mutation=Mutation)
     view = GraphQLView(api=api, schema=schema)
     api.add_route("/graphql", view)
 

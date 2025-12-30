@@ -1,19 +1,12 @@
 import re
 from pathlib import Path
-
-from dyne.fields.pydantic import File
-
-try:
-    from typing import _AnnotatedAlias
-except ImportError:  # pragma: no cover
-    _AnnotatedAlias = None
+from typing import get_origin
 
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
 from dyne import status
-from dyne.ext.auth import BasicAuth, DigestAuth, TokenAuth
-from dyne.fields.mashmellow import FileField
+from dyne.ext.auth.backends import BasicAuth, DigestAuth, TokenAuth
 from dyne.statics import DEFAULT_OPENAPI_THEME, OPENAPI_THEMES
 from dyne.templates import Templates
 
@@ -67,6 +60,7 @@ class Schema:
         self.static_route = static_route
 
     def _apispec(self, req):
+
         info = {}
         if self.description is not None:
             info["description"] = self.description
@@ -76,10 +70,7 @@ class Schema:
             info["contact"] = self.contact
         if self.license is not None:
             info["license"] = self.license
-        if self.app.state.doc:
-            info["description"] = self.app.state.doc.strip()
 
-        # servers
         servers = [{"url": req.base_url}]
 
         spec = APISpec(
@@ -91,304 +82,264 @@ class Schema:
             servers=servers,
         )
 
-        self.ma_plugin.converter.field_mapping[FileField] = ("string", "binary")
+        # ------------------------------------------------------------
+        # Global authentication Security Schemes
+        # ------------------------------------------------------------
 
-        # security schemes
-        auth_schemes = []
-        auth_names = []
+        unique_backends = []
         for route in self.app.router.routes:
-            if hasattr(route.endpoint, "_spec"):
-                backend = route.endpoint._spec.get("backend")
-                if backend is not None and backend not in auth_schemes:
-                    auth_schemes.append(backend)
-                    if isinstance(backend, BasicAuth):
-                        name = "basic_auth"
-                    elif isinstance(backend, DigestAuth):
-                        name = "digest_auth"
-                    elif isinstance(backend, TokenAuth):
-                        if backend.scheme == "Bearer":
-                            name = "token_auth"
-                        else:
-                            name = "api_key"
-                    else:  # pragma: no cover
-                        raise RuntimeError("Unknown authentication scheme")
-                    if name in auth_names:
-                        v = 2
-                        new_name = f"{name}_{v}"
-                        while new_name in auth_names:  # pragma: no cover
-                            v += 1
-                            new_name = f"{name}_{v}"
-                        name = new_name
-                    auth_names.append(name)
+            backend = getattr(route.endpoint, "_spec", {}).get("backend")
+            if backend and backend not in unique_backends:
+                unique_backends.append(backend)
+
         security = {}
         security_schemes = {}
-        for name, backend in zip(auth_names, auth_schemes):
-            security[backend] = name
-            if isinstance(backend, TokenAuth):
-                if backend.scheme == "Bearer":
-                    security_schemes[name] = {
-                        "type": "http",
-                        "scheme": "bearer",
-                    }
-                else:
-                    security_schemes[name] = {
-                        "type": "apiKey",
-                        "name": backend.header,
-                        "in": "header",
-                    }
-            elif isinstance(backend, BasicAuth):
-                security_schemes[name] = {
-                    "type": "http",
-                    "scheme": "basic",
-                }
-            else:
-                security_schemes[name] = {
-                    "type": "http",
-                    "scheme": "digest",
-                }
+
+        for backend in unique_backends:
+            base_name, scheme = self.get_backend_info(backend)
+
             if backend.__doc__:
-                security_schemes[name]["description"] = backend.__doc__.strip()
-        for prefix in ["basic_auth", "token_auth", "api_key", "digest_auth"]:
-            for name, scheme in security_schemes.items():
-                if name.startswith(prefix):
-                    spec.components.security_scheme(name, scheme)
+                scheme["description"] = backend.__doc__.strip()
 
-        # paths
+            name = base_name
+            v = 2
+            while name in security_schemes:
+                name = f"{base_name}_{v}"
+                v += 1
+
+            security_schemes[name] = scheme
+            security[backend] = name
+
+        for name, scheme in security_schemes.items():
+            spec.components.security_scheme(name, scheme)
+
+        # ------------------------------------------------------------
+        #  Routes
+        # ------------------------------------------------------------
         paths = {}
-        for route in self.app.router.routes:
+        webhooks = {}
+        allowed_methods = {"get", "post", "put", "patch", "delete"}
 
+        for route in self.app.router.routes:
             operations = {}
-            is_endpoint = True  # False for webhooks
-            endpoint_name = route.endpoint_name
+            path = route.route
             endpoint = route.endpoint
-            if not hasattr(endpoint, "_spec"):
+            endpoint_name = route.endpoint_name
+            route_methods = route.methods or ["get"]
+            annot = getattr(endpoint, "_spec", None)
+
+            if not annot:
                 continue
-            _spec = endpoint._spec
-            if _spec.get("webhook"):
-                is_endpoint = False
-                endpoint_name = _spec["webhook"].get("endpoint_name") or endpoint_name
-            if "." in endpoint_name:  # Blueprint
-                tag, endpoint_name = endpoint_name.rsplit(".", 1)
-                tag = tag.title()
-            else:
-                tag = None
+
             methods = [
-                method
-                for method in route.methods
-                if method in ["GET", "POST", "PUT", "PATCH", "DELETE"]
+                method.lower()
+                for method in route_methods
+                if method.lower() in allowed_methods
             ]
+
+            # Bind input and output adapters to spec.
+            for key in ("input_adapter", "output_adapter", "output_headers_adapter"):
+                adapter = annot.get(key)
+                if adapter and hasattr(adapter, "bind"):
+                    adapter.bind(spec)
+
+            # Bind expect adapters to spec.
+            for expect in annot.get("expect", {}).values():
+                adapter = expect.get("adapter")
+                if adapter and hasattr(adapter, "bind"):
+                    adapter.bind(spec)
+
             for method in methods:
+
+                # --------------------------------------------------------
+                # OPERATION BASE
+                # --------------------------------------------------------
+
                 operation_id = endpoint_name.replace(".", "_")
                 if len(methods) > 1:
-                    operation_id = method.lower() + "_" + operation_id
+                    operation_id = method + "_" + operation_id
 
-                operation = {"operationId": operation_id, "parameters": []}
-                for schema, location in _spec.get("args", []):
-                    if hasattr(schema, "schema"):  # Pydantic schema
-                        for name, field in schema.schema()["properties"].items():
-                            parameter = {
-                                "name": name,
-                                "in": location,
-                                "schema": field,
-                                "description": field.get("description", ""),
-                            }
-                            operation["parameters"].append(parameter)
-                    else:  # Marshmallow schema
-                        parameter = {
-                            "in": location,
-                            "schema": schema,
-                        }
-                        operation["parameters"].append(parameter)
+                operation = {
+                    "operationId": operation_id,
+                    "parameters": [],
+                    "responses": {},
+                }
+
+                # --------------------------------------------------------
+                # TAGS / SUMMARY / DESCRIPTION
+                # --------------------------------------------------------
+                tag = None
+                if "." in endpoint_name:  # Blueprint
+                    tag, name = endpoint_name.rsplit(".", 1)
+                    tag = tag.title()
 
                 if tag:
                     operation["tags"] = [tag]
-                docs = [
-                    line.strip()
-                    for line in (route.description or "").strip().split("\n")
-                ]
+
+                docs = [line.strip() for line in (route.doc or "").strip().split("\n")]
+
                 if docs[0]:
                     operation["summary"] = docs[0]
+
                 if len(docs) > 1:
                     operation["description"] = "\n".join(docs[1:]).strip()
-                if _spec.get("output"):
-                    code = str(_spec["status_code"])
-                    schema = _spec.get("output")
-                    operation["responses"] = {
-                        code: {
+
+                # --------------------------------------------------------
+                # SECURITY (Authorization roles)
+                # --------------------------------------------------------
+                if annot.get("backend"):
+                    backend = annot["backend"]
+                    name, scheme = self.get_backend_info(backend)
+
+                    if "type" not in scheme:  # MultiAuth
+                        operation["security"] = [
+                            {name: annot.get("roles", [])} for name in scheme.keys()
+                        ]
+                    else:
+                        operation["security"] = [{name: annot.get("roles", [])}]
+
+                # --------------------------------------------------------
+                # INPUT (BODY, HEADERS, QUERY PARAMETERS, COOKIES)
+                # --------------------------------------------------------
+                if annot.get("input_adapter"):
+                    input_adapter = annot["input_adapter"]
+                    input_location = annot["input_location"]
+
+                    if input_location in ("json", "media", "form"):
+                        media_type = input_adapter.media_type(input_location)
+                        operation["requestBody"] = {
+                            "required": True,
                             "content": {
-                                "application/json": {
-                                    "schema": (
-                                        schema.schema()
-                                        if hasattr(schema, "schema")  # pydantic
-                                        else schema
-                                    )
+                                media_type: {
+                                    "schema": input_adapter.get_openapi_schema()
                                 }
+                            },
+                        }
+                    else:
+                        operation.setdefault("parameters", []).extend(
+                            input_adapter.get_parameters(input_location)
+                        )
+
+                # --------------------------------------------------------
+                # OUTPUT
+                # --------------------------------------------------------
+                if annot.get("output_adapter"):
+                    output_adapter = annot["output_adapter"]
+                    output_status_code = str(annot.get("output_status_code", 200))
+
+                    operation["responses"][output_status_code] = {
+                        "content": {
+                            "application/json": {
+                                "schema": output_adapter.get_openapi_schema()
                             }
                         }
                     }
-                    operation["responses"][code]["description"] = (
-                        _spec["description"] or status.STATUS_CODES[int(code)]
+
+                    operation["responses"][output_status_code]["description"] = (
+                        annot["output_description"]
+                        or status.STATUS_CODES[int(output_status_code)]
                     )
 
-                    if _spec.get("headers"):
-                        schema = _spec.get("headers")
-                        if hasattr(schema, "schema"):  # Pydantic schema
-                            headers = []
-                            for name, field in schema.schema()["properties"].items():
-                                parameter = {
-                                    "name": name,
-                                    "in": "header",
-                                    "schema": field,
-                                    "description": field.get("description", ""),
-                                }
-                                headers.append(parameter)
+                    if annot.get("output_headers_adapter"):
+                        output_headers_adapter = annot["output_headers_adapter"]
+                        headers = output_headers_adapter.get_parameters("header")
 
-                        else:
-                            headers = self.ma_plugin.converter.schema2parameters(
-                                schema(), location="headers"
-                            )
-                        operation["responses"][code]["headers"] = {
+                        operation["responses"][output_status_code]["headers"] = {
                             header["name"]: header for header in headers
                         }
+
                 else:
                     operation["responses"] = {
                         "204": {"description": status.STATUS_CODES[204]}
                     }
 
-                if _spec.get("responses"):
-                    for status_code, response in _spec.get("responses").items():
-                        if not isinstance(response, (tuple, list)):
-                            response = (response,)
-                        operation["responses"][status_code] = {}
-                        for r in response:
-                            if isinstance(r, str):
-                                operation["responses"][status_code]["description"] = r
-                            else:
-                                if isinstance(r, type):
-                                    r = r()  # instantiate the schema
-                                operation["responses"][status_code]["content"] = {
-                                    "application/json": {"schema": r}
-                                }
-                        if "description" not in operation["responses"][status_code]:
-                            operation["responses"][status_code]["description"] = (
-                                status.STATUS_CODES[int(status_code)]
-                            )
+                # --------------------------------------------------------
+                # EXPECT (DOCUMENTED ERRORS)
+                # --------------------------------------------------------
 
-                if _spec.get("input"):
-                    schema = _spec.get("input")[0]
-                    location = _spec.get("input")[1]
-                    media_type = "application/json"
-                    if location == "form":
-                        has_file = True
-                        if hasattr(schema, "_declared_fields"):  # marshmallow
-                            for field in schema._declared_fields.values():
-                                if isinstance(field, FileField):
-                                    has_file = True
-                                    break
-                        if hasattr(schema, "__fields__"):  # pydantic
-                            for _, field_info in schema.model_fields.items():
-                                if field_info.annotation == File or (
-                                    hasattr(field_info.annotation, "__origin__")
-                                    and File in field_info.annotation.__args__
-                                ):
-                                    has_file = True
-                                    break
-                        media_type = (
-                            "application/x-www-form-urlencoded"
-                            if not has_file
-                            else "multipart/form-data"
-                        )
-                    operation["requestBody"] = {
-                        "content": {
-                            media_type: {
-                                "schema": (
-                                    schema.schema()
-                                    if hasattr(schema, "schema")  # pydantic
-                                    else schema
-                                ),
-                            }
-                        },
-                        "required": True,
+                for status_code, meta in annot.get("expect", {}).items():
+                    response = {
+                        "description": meta["description"]
+                        or status.STATUS_CODES[int(status_code)]
                     }
 
-                if _spec.get("backend"):
-                    operation["security"] = [
-                        {security[_spec["backend"]]: _spec["roles"]}
-                    ]
-                operations[method.lower()] = operation
+                    if meta.get("adapter"):
+                        response["content"] = {
+                            "application/json": {
+                                "schema": meta["adapter"].get_openapi_schema()
+                            }
+                        }
 
-            if is_endpoint:
+                    operation["responses"][status_code] = response
+
+                # -------------------------------------------------
+                # Path Parameters
+                # -------------------------------------------------
                 path_arguments = re.findall(r"{([^}:]+)(?::([^}]+))?}", route.route)
+
                 if path_arguments:
                     annotations = endpoint.__annotations__ or {}
-                    arguments = []
+
                     for name, type_ in path_arguments:
-                        argument = {
+                        types = {
+                            "int": {"type": "integer"},
+                            "float": {"type": "number"},
+                            "uuid": {"type": "string", "format": "uuid"},
+                            "path": {"type": "string", "format": "path"},
+                        }
+                        param = {
                             "in": "path",
                             "name": name,
+                            "schema": types.get(type_, {"type": "string"}),
                         }
-                        if type_ == "int":
-                            argument["schema"] = {"type": "integer"}
-                        elif type_ == "float":
-                            argument["schema"] = {"type": "number"}
-                        elif type_ == "uuid":
-                            argument["schema"] = {"type": "string", "format": "uuid"}
-                        elif type_ == "path":
-                            argument["schema"] = {"type": "string", "format": "path"}
+
+                        ann = annotations.get(name)
+
+                        if isinstance(ann, str):
+                            param["description"] = ann
+
                         else:
-                            argument["schema"] = {"type": "string"}
-                        if isinstance(annotations.get(name), str):
-                            argument["description"] = annotations[name]
-                        elif _AnnotatedAlias and isinstance(
-                            annotations.get(name), _AnnotatedAlias
-                        ):
-                            for annotation in annotations[name].__metadata__:
-                                if isinstance(annotation, str):
-                                    argument["description"] = annotation
-                                    break
-                        arguments.append(argument)
+                            origin = get_origin(ann)
+                            if origin is not None and hasattr(ann, "__metadata__"):
+                                for meta in ann.__metadata__:
+                                    if isinstance(meta, str):
+                                        param["description"] = meta
+                                        break
 
-                    for method, operation in operations.items():
-                        operation["parameters"] = arguments + operation["parameters"]
+                        operation["parameters"].append(param)
 
-                path = re.sub(r"<([^<:]+:)?", "{", route.route).replace(">", "}")
-                if path not in paths:
-                    paths[path] = operations
+                # -------------------------------------------------
+                # Webhooks vs Standard Paths
+                # -------------------------------------------------
+                is_webhook = annot.get("webhook", False)
+
+                if is_webhook:
+                    name = annot["webhook"].get("endpoint_name") or endpoint_name
+                    webhooks[name] = {method: operation}
                 else:
-                    paths[path].update(operations)
-            else:
-                # apispec does not support webhooks, so here they are added as
-                # paths, and later they are moved to their own section after
-                # the spec is generated
-                paths["webhook:" + endpoint_name] = operations
+                    path = re.sub(r"<([^<:]+:)?", "{", path).replace(">", "}")
+                    paths.setdefault(path, {}).update(operations)
 
-            for path, operations in paths.items():
-                # sort by method before adding them to the spec
-                sorted_operations = {}
-                for method in ["get", "post", "put", "patch", "delete"]:
-                    if method in operations:
-                        sorted_operations[method] = operations[method]
-                spec.path(path=path, operations=sorted_operations)
+                # --------------------------------------------------------
+                # REGISTER OPERATION
+                # --------------------------------------------------------
+                operations[method] = operation
+                spec.path(path=path, operations=operations)
 
-        for name, schema in self.schemas.items():
-            if hasattr(schema, "schema"):
-                spec.components.schema(name, schema.schema())  # pydantic.
-            else:
-                spec.components.schema(name, schema=schema)  # marshmallow.
+        # ------------------------------------------------------------
+        # Attach Paths
+        # ------------------------------------------------------------
+        for path, ops in paths.items():
+            sorted_ops = {m: ops[m] for m in allowed_methods if m in ops}
+            spec.path(path=path, operations=sorted_ops)
 
-        webhooks = {
-            path[8:]: operations
-            for path, operations in spec._paths.items()
-            if path.startswith("webhook:")
-        }
+        # ------------------------------------------------------------
+        # Attach Webhooks (OpenAPI 3.0.x)
+        # ------------------------------------------------------------
+
         if webhooks:
-            paths = {
-                path: operations
-                for path, operations in spec._paths.items()
-                if not path.startswith("webhook:")
-            }
-            spec._paths["paths"] = paths
-            spec.__dict__["webhooks"] = webhooks
+            spec_dict = spec.to_dict()
+            spec_dict["webhooks"] = webhooks
 
         return spec
 
@@ -396,7 +347,6 @@ class Schema:
         return self._apispec(req).to_yaml()
 
     def add_schema(self, name, schema, check_existing=True):
-        """Adds a marshmallow schema to the API specification."""
         if check_existing:
             assert name not in self.schemas
 
@@ -442,3 +392,17 @@ class Schema:
         resp.status_code = status.HTTP_200_OK
         resp.headers["Content-Type"] = "application/x-yaml"
         resp.content = self.openapi(req)
+
+    def get_backend_info(self, backend):
+        if isinstance(backend, BasicAuth):
+            return "basic_auth", {"type": "http", "scheme": "basic"}
+
+        if isinstance(backend, DigestAuth):
+            return "digest_auth", {"type": "http", "scheme": "digest"}
+
+        if isinstance(backend, TokenAuth):
+            if backend.scheme == "Bearer":
+                return "token_auth", {"type": "http", "scheme": "bearer"}
+            return "api_key", {"type": "apiKey", "name": backend.header, "in": "header"}
+
+        raise RuntimeError(f"Unknown authentication scheme: {type(backend)}")

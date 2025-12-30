@@ -81,7 +81,7 @@ class Route(BaseRoute):
         return self.endpoint.__name__
 
     @property
-    def description(self):
+    def doc(self):
         return self.endpoint.__doc__
 
     def matches(self, scope):

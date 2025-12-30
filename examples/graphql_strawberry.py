@@ -2,6 +2,7 @@ import strawberry
 
 import dyne
 from dyne.ext.graphql import GraphQLView
+from dyne.ext.graphql.strawberry import Schema
 
 api = dyne.API()
 
@@ -26,7 +27,7 @@ class Query:
         return f"Hello {name}"
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = Schema(query=Query, mutation=Mutation)
 view = GraphQLView(api=api, schema=schema)
 
 api.add_route("/graphql", view)

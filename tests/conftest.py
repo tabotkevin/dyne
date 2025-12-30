@@ -1,9 +1,9 @@
 from pathlib import Path
 
+import dyne
 import graphene
 import pytest
-
-import dyne
+from dyne.ext.graphql.graphene import Schema
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def schema():
         def resolve_hello(self, info, name):
             return f"Hello {name}"
 
-    return graphene.Schema(query=Query)
+    return Schema(query=Query)
 
 
 @pytest.fixture

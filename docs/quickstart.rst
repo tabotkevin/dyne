@@ -151,111 +151,196 @@ Here, we'll process our data in the background, while responding immediately to 
 A ``POST`` request to ``/incoming`` will result in an immediate response of ``{'success': true}``.
 
 
-File Upload
------------
+File Uploads
+============
 
-Dyne provides two ways to handle file uploads: using the `@api.input` decorator with either Marshmallow or Pydantic schemas, 
-or via native file upload support.
+Dyne simplifies file handling by offering two primary approaches: **Schema-based validation** (via Marshmallow or Pydantic) for robust type and constraint checking, and **Native handling** for direct, manual processing.
 
-1. Uploading Files with `@api.input` Decorator
-----------------------------------------------
+1. Schema-Based Uploads
+-----------------------
 
-You can define file upload logic using Marshmallow or Pydantic schemas. 
-Each approach offers different features for handling file validation and input processing.
+Using the ``@input`` decorator with a schema is the recommended way to handle uploads. This allows you to validate file metadata, size, and extensions before your code ever runs.
 
-a. Uploading with a `Marshmallow` Schema
-----------------------------------------
+A. Using Marshmallow
+~~~~~~~~~~~~~~~~~~~~
 
-When using a Marshmallow schema, you need to utilize the `FileField` class. 
-This class provides built-in validation for file extensions and file size, 
-ensuring that uploaded files meet specified constraints.
-
-**Example:**
+Marshmallow integration uses the ``FileField`` to define constraints like allowed extensions and maximum file size.
 
 .. code-block:: python
 
     from marshmallow import Schema, fields
-    from dyne.fields.marshmallow import FileField
+    from dyne.ext.io.marshmallow.fields import FileField
+    from dyne.ext.io.marshmallow import input
 
     class UploadSchema(Schema):
         description = fields.Str()
-        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
+        image = FileField(
+            allowed_extensions=["png", "jpg", "jpeg"], 
+            max_size=5 * 1024 * 1024  # 5MB
+        )
 
-    @api.input(UploadSchema, location="form")
+    @api.route("/upload", methods=["POST"])
+    @input(UploadSchema, location="form")
     async def upload(req, resp, *, data):
-        image = data.pop("image")
-        await image.save(image.filename)  # The image is already validated for extension and size
-
+        image = data.pop("image") # 'image' is a validated File object.
+        await image.asave(image.filename) 
+        
         resp.media = {"success": True}
 
+B. Using Pydantic
+~~~~~~~~~~~~~~~~~
 
-b. Uploading with a `Pydantic` Schema
--------------------------------------
+Pydantic integration allows you to create reusable file types by subclassing ``FileField``. 
 
-When using a Pydantic schema, you can use the `File` class. While this approach is similar to the Marshmallow version, 
-it does not include built-in support for file extension and size validation. 
-If validation is needed, it must be handled manually.
-
-**Note:** Remember to set `from_attributes = True` in the schema's `Config` to enable proper handling of file uploads.
-
-**Example:**
+.. important::
+    To support custom file objects in Pydantic V2, your schema must include ``arbitrary_types_allowed=True`` within the ``model_config``.
 
 .. code-block:: python
 
-    from pydantic import BaseModel, Field
-    from dyne.fields.pydantic import File
+    from pydantic import BaseModel, ConfigDict
+    from dyne.ext.io.pydantic.fields import FileField
+    from dyne.ext.io.pydantic import input
+
+    class Image(FileField):
+        max_size = 5 * 1024 * 1024
+        allowed_extensions = {"jpg", "jpeg", "png"}
 
     class UploadSchema(BaseModel):
         description: str
-        image: File = Field(...)
+        image: Image
 
-        class Config:
-            from_attributes = True
+        model_config = ConfigDict(
+            from_attributes=True,
+            arbitrary_types_allowed=True
+        )
 
-    @api.input(UploadSchema, location="form")
+    @api.route("/upload", methods=["POST"])
+    @input(UploadSchema, location="form")
     async def upload(req, resp, *, data):
-        image = data.pop("image")
-        await image.save(image.filename)  # Perform validation before saving
+        image = data.pop("image") # 'image' is a validated File object.
+        await image.asave(image.filename)
 
         resp.media = {"success": True}
 
 
-2. Native File Upload Support
------------------------------
+Creating Custom Validators
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Dyne also offers native support for file uploads without requiring schemas. 
-This approach allows for easy handling of files, including background tasks for processing the uploaded content.
+The ``FileField`` system is designed to be extensible. By default, both Pydantic and Marshmallow versions come pre-configured with two core validators:
 
-**Example:**
+* ``validate_size``: Enforces the `max_size` constraint.
+* ``validate_extension``: Enforces the `allowed_extensions` constraint.
+
+Every validator in the registry—whether default or custom—receives a `File` object (imported from `from dyne.ext.io import File`) as its primary argument.
+
+Pydantic: Class-Based Extension
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In Pydantic, you extend the validation logic by creating a subclass and updating the `file_validators` class variable. Custom validator methods must be decorated with `@classmethod` and should raise a standard `ValueError` upon failure.
 
 .. code-block:: python
 
-    @api.route("/")
+    from dyne.ext.io.pydantic.fields import FileField
+    from dyne.ext.io import File
+    from pydantic import BaseModel
+
+    class ImageField(FileField):
+        max_size = 2 * 1024 * 1024
+        allowed_extensions = {"jpg", "jpeg", "png"}
+        
+        # Append the new validator method name to the registry
+        file_validators = FileField.file_validators + ["validate_is_image"]
+
+        @classmethod
+        def validate_is_image(cls, file: File):
+            # Custom logic to check MIME types
+            if not file.content_type.startswith("image/"):
+                raise ValueError("File is not a valid image")
+
+    # Usage in a Model
+    class ProfileUpdate(BaseModel):
+        username: str
+        avatar: ImageField
+
+
+Marshmallow: Flexible Validation Registry
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Marshmallow fields offer two ways to register custom validators. Unlike Pydantic, these methods are instance methods and must raise `marshmallow.ValidationError`.
+
+1. Using the Constructor (Instance Level)
+
+This approach is ideal for adding validators dynamically during initialization. You modify the ``self.active_file_validators`` list inside the ``__init__`` method.
+
+.. code-block:: python
+
+    from dyne.ext.io import File
+    from dyne.ext.io.marshmallow.fields import FileField
+    from marshmallow import Schema, ValidationError
+
+    class SecureFileField(FileField):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            # Add a custom validator to this specific instance
+            self.active_file_validators.append("validate_virus_scan")
+
+        def validate_virus_scan(self, file: File):
+            if "virus" in file.filename:
+                raise ValidationError("Malicious file detected.")
+
+    # Usage in a Schema
+    class SubmissionSchema(Schema):
+        tax_report = SecureFileField(
+            max_size=2 * 1024 * 1024, 
+            allowed_extensions=["pdf"],
+            required=True
+        )
+
+2. Extending the Class Variable (Global Level)
+
+For a simpler, more declarative approach, you can extend the `file_validators` class variable directly. This ensures that every instance of that subclass uses the custom validator by default.
+
+.. code-block:: python
+
+    class SecureFileField(FileField):
+        file_validators = FileField.file_validators + ["validate_virus_scan"]
+
+        def validate_virus_scan(self, file: File):
+            if "virus" in file.filename:
+                raise ValidationError("Malicious file detected")
+
+
+2. Native File Uploads
+----------------------
+
+If you prefer not to use a schema, you can access uploaded files directly from the request object. This is useful for simple endpoints or when handling dynamic file inputs.
+
+.. code-block:: python
+
+    @api.route("/native-upload", methods=["POST"])
     async def upload_file(req, resp):
 
         @api.background.task
-        def process_data(data):
-            with open('./{}'.format(data['file']['filename']), 'w') as f:
-                f.write(data['file']['content'].decode('utf-8'))
+        def process_file(file_data):
+            with open(f"./{file_data['filename']}", 'wb') as f:
+                f.write(file_data['content'])
 
+        # Extracts files from the multipart request
         data = await req.media(format='files')
-        process_data(data)
-        resp.media = {'success': 'ok'}
+        file_obj = data['image']
 
+        process_file(file_obj)
+        resp.media = {'status': 'processing'}
 
-You can send a file easily with `httpx`.
+Client-Side Example
+-------------------
 
-**Example:**
+You can test your file upload endpoints using ``httpx`` or any standard HTTP client.
 
 .. code-block:: python
 
-    import httpx
+    files = {'image': ('photo.jpg', open('photo.jpg', 'rb'), 'image/jpeg')}
+    data = {'description': 'A beautiful sunset'}
 
-    data = {'file': ('hello.txt', 'hello, world!', 'text/plain')}
-    with httpx.Client() as client:
-      r = client.post('http://127.0.0.1:8210/file', files=data)
-
-    print(r.text)
-
-This sends a file named `hello.txt` with the content `"hello, world!"` to the specified API endpoint.
-
+    r = api.client.post("http://;/native-upload", data=data, files=files)
+    print(r.json())

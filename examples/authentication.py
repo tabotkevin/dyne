@@ -2,7 +2,8 @@ import hashlib
 import hmac
 
 import dyne
-from dyne.ext.auth import BasicAuth, DigestAuth, MultiAuth, TokenAuth
+from dyne.ext.auth import authenticate
+from dyne.ext.auth.backends import BasicAuth, DigestAuth, MultiAuth, TokenAuth
 
 api = dyne.API()
 
@@ -28,7 +29,7 @@ async def error_handler(req, resp, status_code=401):
 
 
 @api.route("/{greeting}")
-@api.authenticate(basic_auth)
+@authenticate(basic_auth)
 async def basic_greet(req, resp, *, greeting):
     resp.text = f"{greeting}, {req.state.user}!"
 
@@ -55,7 +56,7 @@ async def token_error_handler(req, resp, status_code=401):
 
 
 @api.route("/{greeting}")
-@api.authenticate(token_auth)
+@authenticate(token_auth)
 async def token_greet(req, resp, *, greeting):
     resp.text = f"{greeting}, {req.state.user}!"
 
@@ -81,7 +82,7 @@ async def digest_error_handler(req, resp, status_code=401):
 
 
 @api.route("/{greeting}")
-@api.authenticate(digest_auth)
+@authenticate(digest_auth)
 async def digest_greet(req, resp, *, greeting):
     resp.text = f"{greeting}, {req.state.user}!"
 
@@ -135,13 +136,13 @@ async def get_user_roles(user):
 
 
 @api.route("/welcome")
-@api.authenticate(basic_auth, role="user")
+@authenticate(basic_auth, role="user")
 async def welcome(req, resp):
     resp.text = f"welcome back {req.state.user}!"
 
 
 @api.route("/admin")
-@api.authenticate(basic_auth, role="admin")
+@authenticate(basic_auth, role="admin")
 async def admin(req, resp):
     resp.text = f"Hello {req.state.user}, you are an admin!"
 
@@ -155,7 +156,7 @@ multi_auth = MultiAuth(digest_auth, token_auth, basic_auth)
 
 
 @api.route("/{greeting}")
-@api.authenticate(multi_auth)
+@authenticate(multi_auth)
 async def greet_world(req, resp, *, greeting):
     resp.text = f"{greeting}, world!"
 
