@@ -4,8 +4,6 @@ from http.cookies import SimpleCookie
 from urllib.parse import parse_qs
 
 import chardet
-import marshmallow as ma
-import pydantic as pd
 import rfc3986
 from requests.cookies import RequestsCookieJar
 from requests.structures import CaseInsensitiveDict

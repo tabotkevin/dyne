@@ -1,6 +1,7 @@
 def _annotate(f, **kwargs):
-    """Utilized to store essential route details for later inclusion in the
-    OpenAPI documentation of the route."""
+    """
+    Stores metadata about the route for later use during OpenAPI generation.
+    """
 
     if not hasattr(f, "_spec"):
         f._spec = {}

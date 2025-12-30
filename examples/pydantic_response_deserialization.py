@@ -39,7 +39,6 @@ session.add(book2)
 session.commit()
 
 
-@api.schema("PydanticBookCreate")
 class BookSchema(BaseModel):
     id: Optional[int] = None
     price: float

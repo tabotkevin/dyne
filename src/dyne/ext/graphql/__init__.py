@@ -1,1 +1,1 @@
-from .view import GraphQLView
+from .view import GraphQLView  # noqa: F401

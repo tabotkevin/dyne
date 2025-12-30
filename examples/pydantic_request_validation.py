@@ -3,7 +3,7 @@ import time
 from pydantic import AliasGenerator, BaseModel, ConfigDict
 
 import dyne
-from dyne.ext.io.pydantic import input
+from dyne.ext.io.pydantic import input, webhook
 
 api = dyne.API()
 
@@ -58,23 +58,37 @@ async def list_books(req, resp, *, query):
 
 # Headers
 @api.route("/book/{id}", methods=["POST"])
-@input(HeaderSchema, location="headers")
-async def book_version(req, resp, *, id, headers):
-    print(headers)
-    resp.media = {"id": id, "version": headers["x_version"]}
+@input(HeaderSchema, location="header")
+async def book_version(req, resp, *, id, header):
+    print(header)
+    resp.media = {"id": id, "version": header["x_version"]}
 
 
 # Cookies
 @api.route("/")
-@input(CookiesSchema, location="cookies")
-async def home(req, resp, *, cookies):
-    print(cookies)
+@input(CookiesSchema, location="cookie")
+async def home(req, resp, *, cookie):
+    print(cookie)
     resp.text = "Welcome (Pydantic)"
+
+
+# With webhook annotation.
+@api.route("/transaction", methods=["POST"])
+@webhook(name="transaction")
+@input(BookSchema)
+async def purchases(req, resp, *, data):
+    @api.background.task
+    def process(book):
+        time.sleep(2)
+        print(book)
+
+    process(data)
+    resp.media = {"status": "Received!"}
 
 
 # Stacked inputs (cookies + body)
 @api.route("/store", methods=["POST"])
-@input(CookiesSchema, location="cookies", key="cookies")
+@input(CookiesSchema, location="cookie", key="cookies")
 @input(BookSchema)
 async def store(req, resp, *, cookies, data):
     print(f"Cookies: {cookies}")

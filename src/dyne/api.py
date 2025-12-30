@@ -33,9 +33,6 @@ class API:
 
     status = status
 
-    class State:
-        pass
-
     def __init__(
         self,
         *,
@@ -101,7 +98,6 @@ class API:
         self.default_endpoint = None
         self.app = ExceptionMiddleware(self.router, debug=debug)
         # A store for applications to retain data for the entire lifecycle.
-        self.state = API.State()
         self.add_middleware(GZipMiddleware)
 
         if self.hsts_enabled:

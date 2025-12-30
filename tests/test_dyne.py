@@ -34,7 +34,7 @@ def test_route_repr():
     assert route.__repr__() == f"<Route '/'={home!r}>"
 
     assert route.endpoint_name == home.__name__
-    assert route.description == home.__doc__
+    assert route.doc == home.__doc__
 
 
 def test_websocket_route_repr():
@@ -984,21 +984,21 @@ def test_pydantic_input_request_validation(api):
 
     # Headers
     @api.route("/book/{id}", methods=["POST"])
-    @input(HeaderSchema, location="headers")
-    async def book_version(req, resp, *, id, headers):
-        assert headers == {"x_version": "2.4.5"}
+    @input(HeaderSchema, location="header")
+    async def book_version(req, resp, *, id, header):
+        assert header == {"x_version": "2.4.5"}
 
     # Cookies
     @api.route("/")
-    @input(CookiesSchema, location="cookies")
-    async def home(req, resp, *, cookies):
-        print(cookies)
+    @input(CookiesSchema, location="cookie")
+    async def home(req, resp, *, cookie):
+        print(cookie)
         resp.text = "Welcome (Pydantic)"
-        assert cookies == {"max_age": 123, "is_cheap": True}
+        assert cookie == {"max_age": 123, "is_cheap": True}
 
     # Stacked inputs (cookies + body)
     @api.route("/store", methods=["POST"])
-    @input(CookiesSchema, location="cookies", key="cookies")
+    @input(CookiesSchema, location="cookie", key="cookies")
     @input(BookSchema)
     async def store(req, resp, *, cookies, data):
         print(f"Cookies: {cookies}")
@@ -1087,21 +1087,21 @@ def test_marshmallow_input_request_validation(api):
 
     # Headers
     @api.route("/book/{id}", methods=["POST"])
-    @input(HeaderSchema, location="headers")
-    async def book_version(req, resp, *, id, headers):
-        assert headers == {"x_version": "2.4.5"}
+    @input(HeaderSchema, location="header")
+    async def book_version(req, resp, *, id, header):
+        assert header == {"x_version": "2.4.5"}
 
     # Cookies
     @api.route("/")
-    @input(CookiesSchema, location="cookies")
-    async def home(req, resp, *, cookies):
-        print(cookies)
+    @input(CookiesSchema, location="cookie")
+    async def home(req, resp, *, cookie):
+        print(cookie)
         resp.text = "Welcome (Marshmallow)"
-        assert cookies == {"max_age": 123, "is_cheap": True}
+        assert cookie == {"max_age": 123, "is_cheap": True}
 
     # Stacked inputs (cookies + body)
     @api.route("/store", methods=["POST"])
-    @input(CookiesSchema, location="cookies", key="cookies")
+    @input(CookiesSchema, location="cookie", key="cookies")
     @input(BookSchema)
     async def store(req, resp, *, cookies, data):
         print(f"Cookies: {cookies}")

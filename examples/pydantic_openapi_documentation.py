@@ -1,13 +1,14 @@
-from marshmallow import Schema, fields
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
+from pydantic.fields import Field
 from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 import dyne
+from dyne.exceptions import abort
 from dyne.ext.auth import authenticate
 from dyne.ext.auth.backends import BasicAuth
-from dyne.ext.io.marshmallow import expect, input, output
-from dyne.ext.io.marshmallow.fields import FileField
+from dyne.ext.io.pydantic import expect, input, output, webhook
+from dyne.ext.io.pydantic.fields import FileField
 
 doc = """
 API Documentation
@@ -25,8 +26,7 @@ For further inquiries or support, please contact support@example.com.
 """
 
 
-api = dyne.API()
-api.state.doc = doc  # Set the `doc` on state variable to get the overview documentation
+api = dyne.API(description=doc)
 
 
 users = dict(john="password", admin="password123")
@@ -84,17 +84,43 @@ session.add(book2)
 session.commit()
 
 
-class BookSchema(Schema):
-    id = fields.Integer(dump_only=True)
-    price = fields.Float()
-    title = fields.Str()
-    cover = fields.Str()
+class BookSchema(BaseModel):
+    id: int | None = None
+    price: float
+    title: str
+    cover: str | None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
-class BookCreateSchema(Schema):
-    price = fields.Float()
-    title = fields.Str()
-    image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
+class Image(FileField):
+    max_size = 5 * 1024 * 1024
+    allowed_extensions = {"jpg", "jpeg", "png"}
+
+
+class BookCreateSchema(BaseModel):
+    price: float
+    title: str
+    image: Image
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        arbitrary_types_allowed=True,  # Crucial for custom classes like FileField
+    )
+
+
+class PriceUpdateSchema(BaseModel):
+    price: float
+
+
+class InvalidTokenSchema(BaseModel):
+    error: str = Field("token_expired", description="The error code")
+    message: str = Field(..., description="Details about the token failure")
+
+
+class InsufficientPermissionsSchema(BaseModel):
+    error: str = "forbidden"
+    required_role: str = "admin"
 
 
 @api.route("/create", methods=["POST"])
@@ -103,7 +129,11 @@ class BookCreateSchema(Schema):
 @output(BookSchema)
 @expect(
     {
-        401: "Invalid credentials",
+        401: InvalidTokenSchema,
+        403: (
+            InsufficientPermissionsSchema,
+            "Requires elevated administrative privileges",
+        ),
     }
 )
 async def create(req, resp, *, data):
@@ -119,13 +149,36 @@ async def create(req, resp, *, data):
     resp.obj = book
 
 
-@api.route("/book/{id}", methods=["POST"])
+@api.route("/book/{id}", methods=["GET"])
 @authenticate(basic_auth)
 @output(BookSchema)
 async def book(req, resp, *, id):
     """Get a book"""
 
     resp.obj = session.query(Book).filter_by(id=id).first()
+
+
+@api.route("/update-price/{id}", methods=["PATCH"])
+@webhook
+@authenticate(basic_auth, role="user")
+@input(PriceUpdateSchema)
+@output(BookSchema)
+@expect(
+    {
+        403: "Insufficient permissions",
+        404: "Book not found",
+    }
+)
+async def update_book_price(req, resp, id, *, data):
+    """Update bok price."""
+    book = session.query(Book).get(id)
+    if not book:
+        abort(404)
+
+    book.price = data["price"]
+    session.commit()
+
+    resp.obj = book
 
 
 @api.route("/all", methods=["GET"])

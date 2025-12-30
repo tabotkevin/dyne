@@ -26,28 +26,38 @@ A light weight Python async framework with batteries included.
 .. code:: python
 
     import dyne
-    from marshmallow import Schema, fields
+    from pydantic import BaseModel, ConfigDict
     from dyne.ext.auth import authenticate
     from dyne.ext.auth.backends import BasicAuth
-    from dyne.ext.io.marshmallow import input, output, expect
-    from dyne.ext.io.marshmallow.fields import FileField
+    from dyne.ext.io.pydantic import input, output, expect
+    from dyne.ext.io.pydantic.fields import FileField
 
     api = dyne.API()
     basic_auth = BasicAuth()
 
     # Define your schemas
-    class BookSchema(Schema):
-        id = fields.Integer(dump_only=True)
-        price = fields.Float()
-        title = fields.Str()
-        cover_url = fields.Str()
 
-    class BookCreateSchema(Schema):
-        price = fields.Float(required=True)
-        title = fields.Str(required=True)
-        # FileField is automatically documented as a 'binary' format string
-        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
+    class BookSchema(BaseModel):
+        id: int | None = None
+        price: float
+        title: str
+        cover_url: str | None
 
+        model_config = ConfigDict(from_attributes=True)
+
+    class Image(FileField):
+        max_size = 5 * 1024 * 1024
+        allowed_extensions = {"jpg", "jpeg", "png"}
+
+    class BookCreateSchema(BaseModel):
+        price: float
+        title: str
+        image: Image
+
+        model_config = ConfigDict(
+            from_attributes=True,
+            arbitrary_types_allowed=True
+        )
 
     @api.route("/book", methods=["POST"])
     @authenticate(basic_auth, role="admin")
@@ -109,14 +119,78 @@ User Guides
    maintainers
 
 
-Installing dyne
---------------------
 
-.. code-block:: shell
+Installation Guide
+------------------
 
-    $ pip install dyne
+Dyne uses **optional dependencies** (extras) to keep the core package lightweight. This allows you to install only the features you need for your specific project.
 
-    $ pip install dyne[strawberry]  # example Optional dependencies install.
+Installing Specific Feature Sets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can install the following bundles using `pip`. Note that the use of brackets `[]` is required.
+
+#### 1. OpenAPI & Serialization
+
+If you are building a REST API and want to use **Pydantic** or **Marshmallow** for validation and OpenAPI (Swagger) generation:
+
+* **With Pydantic:**
+.. code-block:: bash
+  pip install "dyne[openapi_pydantic]"
+
+* **With Marshmallow:**
+.. code-block:: bash
+  pip install "dyne[openapi_marshmallow]"
+
+#### 2. GraphQL Engines
+
+If you are building a GraphQL API, choose your preferred schema definition library:
+
+* **With Strawberry:**
+.. code-block:: bash
+  pip install "dyne[graphql_strawberry]"
+
+* **With Graphene:**
+.. code-block:: bash
+  pip install "dyne[graphql_graphene]"
+
+#### 3. Command Line Interface (CLI)
+
+To enable Dyne's terminal-based tools and commands:
+
+.. code-block:: bash
+
+  pip install "dyne[cli]"
+
+#### 4. Full Installation
+
+To install all available features, including both GraphQL engines, both serialization engines, OpenAPI support, Flask adapters, and HTTP client helpers:
+
+.. code-block:: bash
+
+  pip install "dyne[full]"
+
+
+### Summary Table
+
++-----------------------+----------------------------------+----------------------------------+
+| Bundle Name           | Primary Use Case                 | Key Dependencies                 |
++=======================+==================================+==================================+
+| openapi_pydantic      | REST APIs with modern type hints | pydantic, apispec, requests      |
++-----------------------+----------------------------------+----------------------------------+
+| openapi_marshmallow   | REST APIs with schema validation | marshmallow, apispec, requests   |
++-----------------------+----------------------------------+----------------------------------+
+| graphql_strawberry    | Modern Pythonic GraphQL          | strawberry, graphql-server       |
++-----------------------+----------------------------------+----------------------------------+
+| graphql_graphene      | Object-style GraphQL             | graphene, graphql-server         |
++-----------------------+----------------------------------+----------------------------------+
+| cli                   | Terminal tools and scaffolding   | docopt                           |
++-----------------------+----------------------------------+----------------------------------+
+| full                  | Everything included              | All of the above                 |
++-----------------------+----------------------------------+----------------------------------+
+
+> **Note for Zsh users:** If you are using Zsh (default on macOS), you may need to wrap the package name in quotes to prevent the shell from interpreting the brackets: `pip install "dyne[full]"`.
+
 
 Only **Python 3.10+** and above is supported.
 

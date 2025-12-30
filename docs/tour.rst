@@ -363,20 +363,20 @@ For more advanced configurations or additional examples, refer to the respective
 Request validation
 ------------------
 
-Dyne provides specialized extensions for validating incoming requests against **Pydantic** models or **Marshmallow** schemas. Instead of a generic decorator, you import the `input` decorator specifically for the library you are using.
+Dyne provides specialized extensions for validating incoming requests against **Pydantic** models or **Marshmallow** schemas. Instead of a generic decorator, you import the ``input`` decorator specifically for the library you are using.
 
 Validation is supported for various sources:
 
-* **media**: Request body (JSON, Form, YAML). This is the default.
+* **media**: Request body (``json``, ``form``, ``yaml``). This is the default.
 * **query**: URL query parameters.
-* **headers**: Request headers.
-* **cookies**: Browser cookies.
+* **header**: Request headers.
+* **cookie**: Browser cookies.
 
 Data Injection
 ~~~~~~~~~~~~~~
 
 Once validated, the data is injected into your handler as a keyword argument. 
-* By default, the argument name is the value of the ``location`` (e.g., ``query``, ``headers``).
+* By default, the argument name is the value of the ``location`` (e.g., ``query``, ``header``).
 * For ``media``, the default argument name is ``data``.
 * You can override this using the ``key`` parameter.
 
@@ -467,7 +467,7 @@ Response Serialization
 
 Dyne simplifies the process of converting Python objects, SQLAlchemy models, or database queries into JSON responses. This is managed by the `@output` decorator. Instead of manually assigning data to `resp.media`, you assign your data to `resp.obj`, and the extension handles the serialization based on the provided schema.
 
-The `@output` decorator supports:
+The ``@output`` decorator supports:
 
 * **status_code**: The HTTP status code for the response (default is 200).
 * **header**: A schema to validate and document response headers.
@@ -522,7 +522,7 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
 Marshmallow Output
 ~~~~~~~~~~~~~~~~~~
 
-To serialize using Marshmallow, import the decorator from `dyne.ext.io.marshmallow`.
+To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmallow``.
 
 .. code-block:: python
 
@@ -563,53 +563,192 @@ To serialize using Marshmallow, import the decorator from `dyne.ext.io.marshmall
         resp.obj = session.query(Book).all()
 
 
-Manual Documentation with ``@expect``
--------------------------------------
+API Documentation with ``@expect``
+-----------------------------------
 
-The `@expect` decorator is used primarily for **OpenAPI documentation**. It allows you to define expected response status codes and descriptions that aren't necessarily part of the primary "success" flow.
+The ``@expect`` decorator is a powerful tool for **OpenAPI (Swagger) documentation**. While your primary success response is usually handled by ``@output``, ``@expect`` allows you to document **additional HTTP responses**—such as authentication errors, validation failures, or conflicts—that an endpoint might return.
 
-This is particularly useful for documenting error states (401, 404, 409) or alternative success messages.
+The decorator is flexible and supports three distinct formats depending on the level of detail required for your API specification.Instead of a generic decorator, you import the `input` decorator specifically for the library you are using.
+
+* **Note:** Import the ``expect`` decorator specifically for the library you are using.
+
+* Pydantic: ``dyne.ext.io.pydantic``.
+* Marshmallow: ``dyne.ext.io.marshmallow``.
+
+
+Usage Patterns
+~~~~~~~~~~~~~~
+
+### 1. Description-Only Responses
+Use this format for simple errors when the status code and a message are sufficient.
 
 .. code-block:: python
 
-  from dyne.ext.io.pydantic import expect
-
-  @api.route("/create-book", methods=["POST"])
-  @expect({
-      201: "Book created successfully",
-      401: "Invalid authentication credentials",
-      409: "A book with this ISBN already exists"
-  })
-  async def create_book(req, resp):
-      # Logic here...
-      resp.status_code = 201
-      resp.media = {"msg": "created"}
+    @api.route("/secure-data", methods=["GET"])
+    @expect({
+        401: 'Invalid access or refresh token',
+        403: 'Insufficient permissions'
+    })
+    async def get_data(req, resp):
+        # Logic here...
+        pass
 
 
-Unified Example: ``@input``, ``@output``, and ``@expect``
----------------------------------------------------------
+### 2. Schema-Only Responses
+Use this form when the response includes a **JSON body**, but the description can be inferred or is not necessary (e.g., "Unauthorized" for 401).
+
+Sample Error Schemas
+~~~~~~~~~~~~~~~~~~~~~
+
+To provide structured error responses in your documentation, define your error schemss using Pydantic or Marshmallow:
+
+.. code-block:: python
+
+    # Pydantic example
+    from pydantic import BaseModel, Field
+
+    class InvalidTokenSchema(BaseModel):
+        error: str = Field("token_expired", description="The error code")
+        message: str = Field(..., description="Details about the token failure")
+
+    class InsufficientPermissionsSchema(BaseModel):
+        error: str = "forbidden"
+        required_role: str = "admin"
+
+
+    # Marshmallow example
+    from marshmallow import Schema, fields
+
+    class InvalidTokenSchema(Schema):
+        error = fields.String(
+            dump_default="token_expired",
+            metadata={"description": "The error code"},
+        )
+        message = fields.String(
+            required=True,
+            metadata={"description": "Details about the token failure"},
+        )
+
+    class InsufficientPermissionsSchema(Schema):
+        error = fields.String(
+            dump_default="forbidden",
+            metadata={"description": "Error code"},
+        )
+        required_role = fields.String(
+            dump_default="admin",
+            metadata={"description": "Role required to access this resource"},
+        )
+
+.. code-block:: python
+
+    @api.route("/secure-data", methods=["GET"])
+    @expect({
+        401: InvalidTokenSchema,
+        403: InsufficientPermissionsSchema
+    })
+    async def get_data(req, resp):
+        pass
+
+
+### 3. Schema + Description Responses (Recommended)
+Use this form when you want **full control** over both the response schema and its description.
+
+.. code-block:: python
+
+    @api.route("/secure-data", methods=["GET"])
+    @expect({
+        401: (InvalidTokenSchema, 'Invalid access or refresh token'),
+        403: (InsufficientPermissionsSchema, 'Requires elevated administrative privileges')
+    })
+    async def get_data(req, resp):
+        pass
+
+
+Webhooks
+_________
+
+The `@webhook` decorator is used to mark a standard endpoint as a webhook receiver. This attaches metadata to the route, allowing Dyne to identify it in generated documentation (like OpenAPI Callbacks) or for internal routing.
+
+The decorator is flexible and supports two calling conventions:
+
+* **Note:** Import the ``expect`` decorator specifically for the library you are using.
+
+* Pydantic: ``dyne.ext.io.pydantic``.
+* Marshmallow: ``dyne.ext.io.marshmallow``.
+
+1. Basic Usage (Implicit Naming)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When used without parentheses, the webhook uses the function name as its default identifier.
+
+.. code-block:: python
+
+@api.route("/events", methods=["POST"])
+@api.webhook
+async def handle_event(req, resp):
+    pass
+
+
+2. Explicit Naming
+~~~~~~~~~~~~~~~~~~
+
+You can provide a specific name for the webhook using the `name` argument. This is useful when the external service requires a specific endpoint identifier that differs from your function name.
+
+.. code-block:: python
+
+@api.route("/transaction", methods=["POST"])
+@api.webhook(name="transaction_callback")
+async def process_payment(req, resp):
+    pass
+
+
+* **Note:** A function decorated with ``@webhook`` automatically inherits the HTTP method defined in the ``@api.route`` decorator. For example, if your route is configured for ``POST``, the webhook documentation will reflect that it expects a ``POST`` request from the external caller.
+
+Example
+~~~~~~~
+
+.. code-block:: python
+
+    @api.route("/transaction", methods=["POST"])
+    @api.webhook(name="transaction")
+    @api.input(BookSchema)
+    async def purchase_book(req, resp, *, data):
+        """
+        Receives a book purchase notification and processes it asynchronously.
+        """
+        @api.background.task
+        def process(book):
+            # Simulate heavy processing
+            time.sleep(2)
+            print(f"Processing webhook for: {book['title']}")
+
+        process(data)
+        resp.media = {"status": "Received!"}
+
+
+Unified Example: ``@input``, ``@output``, ``@expect`` and ``@webhook``
+----------------------------------------------------------------------
 
 In a production endpoint, you will typically use all three decorators together to create a fully validated and documented API.
 
 .. code-block:: python
 
-  from dyne.ext.io.pydantic import input
-  from dyne.ext.io.pydantic import output
-  from dyne.ext.io.pydantic import expect
+  from dyne.exceptions import abort
+  from dyne.ext.io.pydantic import expect, input, output, webhook
 
   @api.route("/update-price/{id}", methods=["PATCH"])
-  @input(PriceUpdateSchema)     # Validate request body
-  @output(BookSchema)           # Serialize updated ORM object
-  @expect({                        # Document potential errors
+  @webhook                      # Documents this endpoint as a webhook.
+  @input(PriceUpdateSchema)     # Validate request body.
+  @output(BookSchema)           # Serialize updated ORM object.
+  @expect({                     # Document potential errors.
       403: "Insufficient permissions",
       404: "Book not found"
   })
   async def update_book_price(req, resp, id, *, data):
       book = session.query(Book).get(id)
       if not book:
-          resp.status_code = 404
-          return
-          
+          abort(404)
+  
       book.price = data.price
       session.commit()
 
@@ -620,17 +759,17 @@ In a production endpoint, you will typically use all three decorators together t
 Summary of Decorators
 ~~~~~~~~~~~~~~~~~~~~~
 
-
-+-----------------+------------------------------------------+---------------------------------------+
-| Decorator       | Primary Purpose                          | Core Mechanism                        |
-+=================+==========================================+=======================================+
-| ``@input``      | Request Validation                       | Injects data into handler kwargs.     |
-+-----------------+------------------------------------------+---------------------------------------+
-| ``@output``     | Response Serialization                   | Converts ``resp.obj`` to JSON.        |
-+-----------------+------------------------------------------+---------------------------------------+
-| ``@expect``     | Documentation                            | Adds responses to OpenAPI spec.       |
-+-----------------+------------------------------------------+---------------------------------------+
-
++-----------------+------------------------------------------+----------------------------------------------+
+| Decorator       | Primary Purpose                          | Core Mechanism                               |
++=================+==========================================+==============================================+
+| ``@input``      | Request Validation                       | Injects data into handler kwargs.            |
++-----------------+------------------------------------------+----------------------------------------------+
+| ``@output``     | Response Serialization                   | Converts ``resp.obj`` to JSON.               |
++-----------------+------------------------------------------+----------------------------------------------+
+| ``@expect``     | Documentation                            | Adds responses to OpenAPI spec.              |
++-----------------+------------------------------------------+----------------------------------------------+
+| ``@webhook``    | Documentation                            | Adds endpoint as a webhook in OpenAPI spec.  |
++-----------------+------------------------------------------+----------------------------------------------+
 
 
 Authentication
@@ -921,9 +1060,8 @@ To provide a title and description for your API, assign a docstring or a configu
 
     import dyne
 
-    api = dyne.API()
 
-    api.state.doc = """ 
+    description = """ 
     User Management API
     -------------------
     This API allows for comprehensive management of users and books.
@@ -931,6 +1069,18 @@ To provide a title and description for your API, assign a docstring or a configu
     **Base URL:** `https://api.example.com/v1`
     **Support:** `support@example.com`
     """
+
+    api = dyne.API(description=description)
+
+    Other variables include:
+    - title e.g "Book Store",
+    - version e.g "1.0",
+    - description=None,
+    - terms_of_service=None,
+    - contact=None,
+    - license=None,
+    - openapi e.g "3.0.1",
+    - openapi_theme e.g ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
 
 The Documentation Decorators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

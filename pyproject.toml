@@ -26,6 +26,7 @@ dependencies = [
   # WSGI compatibility
   "a2wsgi>=1.10.7",
   "chardet>=5.2.0",
+
 ]
 
 classifiers = [
@@ -46,6 +47,10 @@ keywords = [
   "async",
   "asgi",
   "graphql",
+  "strawberry",
+  "graphene",
+  "pydantic",
+  "marshmallow",
   "serialization",
   "plugins",
   "extentions",
@@ -59,18 +64,14 @@ graphql = ["graphql-server>=3.0.0b7"]
 
 strawberry = ["strawberry-graphql>=0.287.3"]
 
-graphene = ["graphene>=3.4.3", "graphql-server>=3.0.0b7"]
+graphene = ["graphene>=3.4.3"]
 
 # Serialization Engines
 pydantic = ["pydantic>=2.7.0"]
 
 marshmallow = ["marshmallow>=3.21.1"]
 
-# ORM Integrations
-sqlalchemy = ["sqlalchemy>=2.0.29"]
-
-# OpenAPI / Schema generation
-openapi = ["apispec>=1.0.0b1"]
+openapi = ["apispec>=6.9.0"]
 
 # CLI tools
 cli = ["docopt>=0.6.2"]
@@ -81,8 +82,20 @@ http = ["requests>=2.31.0", "requests-toolbelt>=1.0.0"]
 # Flask compatibility / adapter
 flask = ["flask>=3.0.3"]
 
+# OpenAPI with Pydantic
+openapi_pydantic = ["dyne[pydantic,openapi,cli,http]"]
+
+# OpenAPI with Marshmallow
+openapi_marshmallow = ["dyne[marshmallow,openapi,cli,http]"]
+
+# GraphQL with Strawberry
+graphql_strawberry = ["dyne[graphql,strawberry]"]
+
+# GraphQL with Graphene
+graphql_graphene = ["dyne[graphql,graphene]"]
+
 full = [
-  "dyne[strawberry,graphene,pydantic,marshmallow,sqlalchemy,openapi,cli,http,flask]",
+  "dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,cli,http,flask]",
 ]
 
 
@@ -109,8 +122,9 @@ dev-dependencies = [
   "pytest-cov>=5.0.0",
   "httpx>=0.27.0",
 
-  # Dev-only GraphQL testing
+  # Dev-only Testing
   "strawberry-graphql>=0.246.2",
+  "sqlalchemy>=2.0.29",
 ]
 
 
