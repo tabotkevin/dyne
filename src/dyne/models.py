@@ -7,8 +7,8 @@ import chardet
 import rfc3986
 from requests.cookies import RequestsCookieJar
 from requests.structures import CaseInsensitiveDict
+from starlette.datastructures import State
 from starlette.requests import Request as StarletteRequest
-from starlette.requests import State
 from starlette.responses import Response as StarletteResponse
 from starlette.responses import StreamingResponse as StarletteStreamingResponse
 
@@ -111,7 +111,7 @@ class Request:
         self._starlette = StarletteRequest(scope, receive)
         self.formats = formats
         self._encoding = None
-        self.api = api
+        self.api = api or scope.get("app")
         self._content = None
         self._data = None
 
@@ -177,6 +177,11 @@ class Request:
             return QueryDict(self.url.query)
         except AttributeError:
             return QueryDict({})
+
+    @property
+    def app(self):
+        """Returns the API instance."""
+        return self.api
 
     @property
     def state(self) -> State:

@@ -16,7 +16,7 @@ Here's how you can get started:
 ::
     
     import dyne
-    from dyne.ext.auth import BasicAuth
+    from dyne.ext.auth.backends import BasicAuth
 
 
     api = dyne.API()
@@ -78,13 +78,14 @@ This example demonstrates a clean and minimal API endpoint for creating a new bo
 
 .. code-block:: python
 
-    from dyne.ext.io.marshmallow import input, output, expect
+    from dyne.ext.auth import authenticate
+    from dyne.ext.io.marshmallow import expect, input, output
 
     @api.route("/create", methods=["POST"])
-    @api.authenticate(basic_auth, role="user")
-    @api.input(BookCreateSchema, location="form")
-    @api.output(BookSchema)
-    @api.expect(
+    @authenticate(basic_auth, role="user")
+    @input(BookCreateSchema, location="form")
+    @output(BookSchema)
+    @expect(
         {
             401: "Invalid credentials",
         }
@@ -1274,6 +1275,94 @@ Supported formats: ``text``, ``json``, ``bytes``.
 Closing the connection::
 
     await websocket.close()
+
+
+Application and Request State
+_____________________________
+
+Dyne provides a way to store arbitrary extra information in the application instance 
+and the request instance using the **State** object.
+
+There are two primary types of state available:
+
+1. **Application State**: Persistent data that lives for the entire lifecycle of the application.
+2. **Request State**: Ephemeral data that lives only for the duration of a single HTTP request.
+
+Global Application State
+------------------------
+
+To store variables that should be accessible globally (such as database connection pools, 
+configuration settings, or shared caches), use the ``api.state`` attribute.
+
+this state is designed to be:
+
+- Application-scoped (not request-scoped)
+- Mutable
+- Explicit
+- Easy to test
+
+Initialization  State (Startup)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The best place to initialize application state is within a ``startup`` event handler:
+
+.. code-block:: python
+
+    @api.on_event("startup")
+    async def startup():
+        api.state.db = await create_database_pool()
+        api.state.admin_email = "admin@example.com"
+
+This ensures resources are created once and reused across requests.
+
+Accessing State in Endpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Inside your route handlers, you can access the application state through the 
+``req.app.state`` attribute:
+
+.. code-block:: python
+
+    @api.route("/config")
+    async def get_config(req, resp):
+        email = req.app.state.admin_email
+        resp.media = {"contact": email}
+
+Cleaning Up State (Shutdown)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Long-lived resources should be properly closed during application shutdown.
+
+.. code-block:: python
+
+    @api.on_event("shutdown")
+    async def shutdown():
+        await api.state.db.close()
+
+State vs. Request State
+-----------------------
+
+It is important to distinguish between ``req.app.state`` and ``req.state``.
+
++-------------------+---------------------------+--------------------------------+
+| Feature           | Request State (req.state) | App State (req.app.state)      |
++===================+===========================+================================+
+| **Scope**         | Single HTTP Request       | Entire Application             |
++-------------------+---------------------------+--------------------------------+
+| **Lifecycle**     | Created/Destroyed per req | Persists until server stops    |
++-------------------+---------------------------+--------------------------------+
+| **Typical Use**   | User ID, Request Timer    | DB Pools, Clients, Config      |
++-------------------+---------------------------+--------------------------------+
+| **Thread Safety** | Isolated to request       | Shared across all requests     |
++-------------------+---------------------------+--------------------------------+
+
+
+.. note::
+   If you try to access a state attribute that has not been set, it will raise 
+   an ``AttributeError``. Use ``getattr(req.app.state, "key", default)`` if 
+   you are unsure if a value exists.
+
+
 
 Using Requests Test Client
 --------------------------
