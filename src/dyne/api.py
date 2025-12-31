@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import uvicorn
+from starlette.datastructures import State
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
@@ -97,7 +98,9 @@ class API:
 
         self.default_endpoint = None
         self.app = ExceptionMiddleware(self.router, debug=debug)
-        # A store for applications to retain data for the entire lifecycle.
+
+        # A store for applications to retain long-lived resources and shared context.
+        self.state = State()
         self.add_middleware(GZipMiddleware)
 
         if self.hsts_enabled:
@@ -361,4 +364,7 @@ class API:
         self.serve(**kwargs)
 
     async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            scope["app"] = self
+
         await self.app(scope, receive, send)

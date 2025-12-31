@@ -8,24 +8,66 @@
 [![image](https://img.shields.io/github/contributors/tabotkevin/dyne.svg)](https://github.com/tabotkevin/dyne/graphs/contributors)
 
 ```python
+
 import dyne
+from pydantic import BaseModel, ConfigDict
+from dyne.ext.auth import authenticate
+from dyne.ext.auth.backends import BasicAuth
+from dyne.ext.io.pydantic import input, output, expect
+from dyne.ext.io.pydantic.fields import FileField
 
 api = dyne.API()
+basic_auth = BasicAuth()
 
-@api.route("/create", methods=["POST"])
-@api.authenticate(basic_auth, role="user")
-@api.input(BookCreateSchema, location="form")
-@api.output(BookSchema)
-@api.expect(
-    {
-        401: "Invalid credentials",
-    }
-)
-async def create(req, resp, *, data):
-    """Create book"""
+
+class Book(Base): # An SQLAlchemy model
+    __tablename__ = "books"
+    id = Column(Integer, primary_key=True)
+    price = Column(Float)
+    title = Column(String)
+    cover = Column(String, nullable=True)
+
+
+class BookSchema(BaseModel): # Pydantic model.
+    id: int | None = None
+    price: float
+    title: str
+    cover: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Image(FileField):
+    max_size = 5 * 1024 * 1024
+    allowed_extensions = {"jpg", "jpeg", "png"}
+
+
+class BookCreateSchema(BaseModel):
+    price: float
+    title: str
+    image: Image
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        arbitrary_types_allowed=True
+    )
+
+
+@api.route("/book", methods=["POST"])
+@authenticate(basic_auth, role="admin")
+@input(BookCreateSchema, location="form")
+@output(BookSchema, status_code=201)
+@expect({401: "Unauthorized", 400: "Invalid file format"})
+async def create_book(req, resp, *, data):
+    """
+    Create a new Book
+    ---
+    This endpoint allows admins to upload a book cover and metadata.
+    """
 
     image = data.pop("image")
-    await image.save(image.filename)  # File already validated for extension and size.
+    await image.asave(f"uploads/{image.filename}") # The image is already validated for extension and size.
+
 
     book = Book(**data, cover=image.filename)
     session.add(book)
@@ -33,9 +75,9 @@ async def create(req, resp, *, data):
 
     resp.obj = book
 
-if __name__ == "__main__":
-  api.run()
 ```
+
+![screenshot](screenshot.png)
 
 Powered by [Starlette](https://www.starlette.io/). [View documentation](https://dyneapi.readthedocs.io).
 

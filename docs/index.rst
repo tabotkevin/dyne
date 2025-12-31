@@ -35,13 +35,21 @@ A light weight Python async framework with batteries included.
     api = dyne.API()
     basic_auth = BasicAuth()
 
-    # Define your schemas
+
+    
+    class Book(Base): # An SQLAlchemy model
+        __tablename__ = "books"
+        id = Column(Integer, primary_key=True)
+        price = Column(Float)
+        title = Column(String)
+        cover = Column(String, nullable=True)
+
 
     class BookSchema(BaseModel):
         id: int | None = None
         price: float
         title: str
-        cover_url: str | None
+        cover: str | None
 
         model_config = ConfigDict(from_attributes=True)
 
@@ -75,7 +83,7 @@ A light weight Python async framework with batteries included.
         await image.asave(f"uploads/{image.filename}") # The image is already validated for extension and size.
 
 
-        book = Book(**data, cover_url=image.filename)
+        book = Book(**data, cover=image.filename)
         session.add(book)
         session.commit()
 
@@ -119,7 +127,6 @@ User Guides
    maintainers
 
 
-
 Installation Guide
 ------------------
 
@@ -130,7 +137,8 @@ Installing Specific Feature Sets
 
 You can install the following bundles using `pip`. Note that the use of brackets `[]` is required.
 
-#### 1. OpenAPI & Serialization
+1. OpenAPI & Serialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you are building a REST API and want to use **Pydantic** or **Marshmallow** for validation and OpenAPI (Swagger) generation:
 
@@ -142,7 +150,8 @@ If you are building a REST API and want to use **Pydantic** or **Marshmallow** f
 .. code-block:: bash
   pip install "dyne[openapi_marshmallow]"
 
-#### 2. GraphQL Engines
+2. GraphQL Engines
+^^^^^^^^^^^^^^^^^^
 
 If you are building a GraphQL API, choose your preferred schema definition library:
 
@@ -154,7 +163,8 @@ If you are building a GraphQL API, choose your preferred schema definition libra
 .. code-block:: bash
   pip install "dyne[graphql_graphene]"
 
-#### 3. Command Line Interface (CLI)
+3. Command Line Interface (CLI)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To enable Dyne's terminal-based tools and commands:
 
@@ -162,7 +172,8 @@ To enable Dyne's terminal-based tools and commands:
 
   pip install "dyne[cli]"
 
-#### 4. Full Installation
+4. Full Installation
+^^^^^^^^^^^^^^^^^^^^
 
 To install all available features, including both GraphQL engines, both serialization engines, OpenAPI support, Flask adapters, and HTTP client helpers:
 
@@ -171,7 +182,8 @@ To install all available features, including both GraphQL engines, both serializ
   pip install "dyne[full]"
 
 
-### Summary Table
+Summary Table
+^^^^^^^^^^^^^
 
 +-----------------------+----------------------------------+----------------------------------+
 | Bundle Name           | Primary Use Case                 | Key Dependencies                 |
