@@ -10,47 +10,10 @@
 ```python
 
 import dyne
-from pydantic import BaseModel, ConfigDict
 from dyne.ext.auth import authenticate
-from dyne.ext.auth.backends import BasicAuth
 from dyne.ext.io.pydantic import input, output, expect
-from dyne.ext.io.pydantic.fields import FileField
 
 api = dyne.API()
-basic_auth = BasicAuth()
-
-
-class Book(Base): # An SQLAlchemy model
-    __tablename__ = "books"
-    id = Column(Integer, primary_key=True)
-    price = Column(Float)
-    title = Column(String)
-    cover = Column(String, nullable=True)
-
-
-class BookSchema(BaseModel): # Pydantic model.
-    id: int | None = None
-    price: float
-    title: str
-    cover: str | None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class Image(FileField):
-    max_size = 5 * 1024 * 1024
-    allowed_extensions = {"jpg", "jpeg", "png"}
-
-
-class BookCreateSchema(BaseModel):
-    price: float
-    title: str
-    image: Image
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        arbitrary_types_allowed=True
-    )
 
 
 @api.route("/book", methods=["POST"])
@@ -91,11 +54,74 @@ See
 [the documentation's feature tour](https://dyneapi.readthedocs.io/en/latest/tour.html)
 for more details on features available in dyne.
 
-## Installing dyne
+# Installation Guide
 
-Install the stable release:
+```bash
+pip install dyne
+```
 
-    pip install dyne
+Dyne uses **optional dependencies** (extras) to keep the core package lightweight.  
+This allows you to install only the features you need for your specific project.
+
+## Installing Specific Feature Sets
+
+You can install the following bundles using `pip`.
+
+> **Note:** The use of brackets `[]` is required.
+
+### 1. OpenAPI & Serialization
+
+If you are building a REST API and want to use **Pydantic** or **Marshmallow** for validation and OpenAPI (Swagger) generation:
+
+#### With Pydantic
+
+```bash
+pip install "dyne[openapi_pydantic]"
+```
+
+#### With Marshmallow
+
+```bash
+pip install "dyne[openapi_marshmallow]"
+```
+
+### 2. GraphQL Engines
+
+If you are building a GraphQL API, choose your preferred schema definition library:
+
+#### With Strawberry
+
+```bash
+pip install "dyne[graphql_strawberry]"
+```
+
+#### With Graphene
+
+```bash
+pip install "dyne[graphql_graphene]"
+```
+
+### 3. Command Line Interface (CLI)
+
+To enable Dyne's terminal-based tools and commands:
+
+```bash
+pip install "dyne[cli]"
+```
+
+### 4. Full Installation
+
+To install all available features, including:
+
+- Both GraphQL engines
+- Both serialization engines
+- OpenAPI support
+- Flask adapters
+- HTTP client helpers
+
+```bash
+pip install "dyne[full]"
+```
 
 ## The Basic Idea
 
