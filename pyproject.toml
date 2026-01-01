@@ -9,25 +9,24 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "Tabot Kevin", email = "tabot.kevin@gmail.com" }]
 
 dependencies = [
-  # Core ASGI / server
-  "starlette>=0.37.2",
-  "uvicorn[standard]>=0.29.0",
-  # Async file handling
-  "aiofiles>=23.2.1",
-  # Templating & config
-  "jinja2>=3.1.3",
-  "pyyaml>=6.0.1",
-  # HTTP utilities
-  "rfc3986>=2.0.0",
-  "python-multipart>=0.0.9",
-  # Static files & security
-  "whitenoise>=6.6.0",
-  "itsdangerous>=2.1.2",
-  # WSGI compatibility
-  "a2wsgi>=1.10.7",
-  "chardet>=5.2.0",
-  "docopt>=0.6.2",
-
+    # Core ASGI / server
+    "starlette>=0.37.2",
+    "uvicorn[standard]>=0.29.0",
+    # Async file handling
+    "aiofiles>=23.2.1",
+    # Templating & config
+    "jinja2>=3.1.3",
+    "pyyaml>=6.0.1",
+    # HTTP utilities
+    "rfc3986>=2.0.0",
+    "python-multipart>=0.0.9",
+    # Static files & security
+    "whitenoise>=6.6.0",
+    "itsdangerous>=2.1.2",
+    # WSGI compatibility
+    "a2wsgi>=1.10.7",
+    "chardet>=5.2.0",
+    "docopt>=0.6.2",
 ]
 
 classifiers = [
@@ -78,10 +77,10 @@ openapi = ["apispec>=6.9.0"]
 http = ["requests>=2.31.0", "requests-toolbelt>=1.0.0"]
 
 # OpenAPI with Pydantic
-openapi_pydantic = ["dyne[pydantic,openapi,cli,http]"]
+openapi_pydantic = ["dyne[pydantic,openapi,http]"]
 
 # OpenAPI with Marshmallow
-openapi_marshmallow = ["dyne[marshmallow,openapi,cli,http]"]
+openapi_marshmallow = ["dyne[marshmallow,openapi,http]"]
 
 # GraphQL with Strawberry
 graphql_strawberry = ["dyne[graphql,strawberry]"]
@@ -89,9 +88,7 @@ graphql_strawberry = ["dyne[graphql,strawberry]"]
 # GraphQL with Graphene
 graphql_graphene = ["dyne[graphql,graphene]"]
 
-full = [
-  "dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,cli,http,flask]",
-]
+full = ["dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,http]"]
 
 
 [build-system]
