@@ -6,14 +6,14 @@ You can deploy Dyne anywhere you can deploy a basic Python application.
 Docker Deployment
 -----------------
 
-Assuming existing ``api.py`` and ``Pipfile.lock`` containing ``dyne``.
+Assuming existing ``app.py`` containing ``dyne``.
 
 ``Dockerfile``::
 
-    FROM tabotkevin/pipenv
+    FROM python:3.12-slim
     ENV PORT '80'
     COPY . /app
-    CMD python3 api.py
+    CMD python3 app.py
     EXPOSE 80
 
 That's it!
@@ -23,8 +23,8 @@ Heroku Deployment
 
 The basics::
 
-    $ mkdir my-api
-    $ cd my-api
+    $ mkdir my-app
+    $ cd my-app
     $ git init
     $ heroku create
     ...
@@ -34,22 +34,22 @@ Install dyne::
     $ pipenv install dyne
     ...
 
-Write out an ``api.py``::
+Write out an ``app.py``::
 
     import dyne
 
-    api = dyne.API()
+    app = dyne.App()
 
-    @api.route("/")
+    @app.route("/")
     async def hello(req, resp):
         resp.text = "hello, world!"
 
     if __name__ == "__main__":
-        api.run()
+        app.run()
 
 Write out a ``Procfile``::
 
-    web: python api.py
+    web: python app.py
 
 That's it! Next, we commit and push to Heroku::
 

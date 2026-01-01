@@ -1,9 +1,10 @@
 import graphene
 import strawberry
+
 from dyne.ext.graphql import GraphQLView
 
 
-def test_strawberry(api):
+def test_strawberry(app):
     from dyne.ext.graphql.strawberry import Schema
 
     @strawberry.type
@@ -24,8 +25,8 @@ def test_strawberry(api):
             return f"Hello {name}"
 
     schema = Schema(query=Query, mutation=Mutation)
-    view = GraphQLView(api=api, schema=schema)
-    api.add_route("/graphql", view)
+    view = GraphQLView(app=app, schema=schema)
+    app.add_route("/graphql", view)
 
     # Test graphene query
     query = """
@@ -33,7 +34,7 @@ def test_strawberry(api):
       hello(name: "Alice")
     }
     """
-    response = api.client.post("http://;/graphql", json={"query": query})
+    response = app.client.post("http://;/graphql", json={"query": query})
     assert response.status_code == 200
     assert response.json() == {"data": {"hello": "Hello Alice"}}
 
@@ -46,7 +47,7 @@ def test_strawberry(api):
       }
     }
     """
-    response = api.client.post("http://;/graphql", json={"query": mutation})
+    response = app.client.post("http://;/graphql", json={"query": mutation})
     assert response.status_code == 200
     assert response.json() == {
         "data": {
@@ -63,12 +64,12 @@ def test_strawberry(api):
       nonExistentField
     }
     """
-    response = api.client.post("http://;/graphql", json={"query": invalid_query})
+    response = app.client.post("http://;/graphql", json={"query": invalid_query})
     assert response.status_code == 400
     assert "errors" in response.json()
 
 
-def test_graphene(api):
+def test_graphene(app):
     from dyne.ext.graphql.graphene import Schema
 
     class Query(graphene.ObjectType):
@@ -92,8 +93,8 @@ def test_graphene(api):
         create_message = CreateMessage.Field()
 
     schema = Schema(query=Query, mutation=Mutation)
-    view = GraphQLView(api=api, schema=schema)
-    api.add_route("/graphql", view)
+    view = GraphQLView(app=app, schema=schema)
+    app.add_route("/graphql", view)
 
     # Test graphene query
     query = """
@@ -101,7 +102,7 @@ def test_graphene(api):
       hello(name: "Alice")
     }
     """
-    response = api.client.post("http://;/graphql", json={"query": query})
+    response = app.client.post("http://;/graphql", json={"query": query})
     assert response.status_code == 200
     assert response.json() == {"data": {"hello": "Hello Alice"}}
 
@@ -114,7 +115,7 @@ def test_graphene(api):
       }
     }
     """
-    response = api.client.post("http://;/graphql", json={"query": mutation})
+    response = app.client.post("http://;/graphql", json={"query": mutation})
     assert response.status_code == 200
     assert response.json() == {
         "data": {
@@ -131,6 +132,6 @@ def test_graphene(api):
       nonExistentField
     }
     """
-    response = api.client.post("http://;/graphql", json={"query": invalid_query})
+    response = app.client.post("http://;/graphql", json={"query": invalid_query})
     assert response.status_code == 400
     assert "errors" in response.json()

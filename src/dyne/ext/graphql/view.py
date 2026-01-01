@@ -14,8 +14,8 @@ from .templates import GRAPHIQL
 
 
 class GraphQLView:
-    def __init__(self, *, api, schema: GraphQLSchema):
-        self.api = api
+    def __init__(self, *, app, schema: GraphQLSchema):
+        self.app = app
 
         if not hasattr(schema, "execute"):
             raise TypeError(
@@ -57,7 +57,7 @@ class GraphQLView:
         show_graphiql = req.method == "get" and req.accepts("text/html")
 
         if show_graphiql:
-            resp.content = self.api.templates.render_string(
+            resp.content = self.app.templates.render_string(
                 GRAPHIQL, endpoint=req.url.path
             )
             return

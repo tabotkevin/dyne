@@ -14,22 +14,20 @@ from starlette.testclient import TestClient
 
 from . import status
 from .background import BackgroundQueue
-from .ext.schema import Schema as OpenAPISchema
 from .formats import get_formats
 from .routes import Router
 from .staticfiles import StaticFiles
-from .statics import DEFAULT_CORS_PARAMS, DEFAULT_OPENAPI_THEME, DEFAULT_SECRET_KEY
+from .statics import DEFAULT_CORS_PARAMS, DEFAULT_SECRET_KEY
 from .templates import Templates
 
 
-class API:
+class App:
     """The primary web-service class.
 
     :param static_dir: The directory to use for static files. Will be created for you if it doesn't already exist.
     :param templates_dir: The directory to use for templates. Will be created for you if it doesn't already exist.
     :param auto_escape: If ``True``, HTML and XML templates will automatically be escaped.
     :param enable_hsts: If ``True``, send all responses to HTTPS URLs.
-    :param openapi_theme: OpenAPI documentation theme, must be one of ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
     """
 
     status = status
@@ -38,25 +36,15 @@ class API:
         self,
         *,
         debug=False,
-        title="Documentation",
-        version="1.0",
-        description=None,
-        terms_of_service=None,
-        contact=None,
-        license=None,
-        openapi="3.0.1",
-        openapi_route="/schema.yml",
         static_dir="static",
         static_route="/static",
         templates_dir="templates",
-        docs_route="/docs",
         auto_escape=True,
         secret_key=DEFAULT_SECRET_KEY,
         enable_hsts=False,
         cors=False,
         cors_params=DEFAULT_CORS_PARAMS,
         allowed_hosts=None,
-        openapi_theme=DEFAULT_OPENAPI_THEME,
     ):
         self.background = BackgroundQueue()
 
@@ -78,11 +66,8 @@ class API:
         self.debug = debug
 
         if not allowed_hosts:
-            # if not debug:
-            #     raise RuntimeError(
-            #         "You need to specify `allowed_hosts` when debug is set to False"
-            #     )
             allowed_hosts = ["*"]
+
         self.allowed_hosts = allowed_hosts
 
         if self.static_dir is not None:
@@ -113,21 +98,6 @@ class API:
         self.add_middleware(ServerErrorMiddleware, debug=debug)
         self.add_middleware(SessionMiddleware, secret_key=self.secret_key)
 
-        self.openapi = OpenAPISchema(
-            app=self,
-            title=title,
-            version=version,
-            openapi=openapi,
-            docs_route=docs_route,
-            description=description,
-            terms_of_service=terms_of_service,
-            contact=contact,
-            license=license,
-            openapi_route=openapi_route,
-            static_route=static_route,
-            openapi_theme=openapi_theme,
-        )
-
         # TODO: Update docs for templates
         self.templates = Templates(directory=templates_dir)
         self.client = (
@@ -150,21 +120,6 @@ class API:
 
     def add_middleware(self, middleware_cls, **middleware_config):
         self.app = middleware_cls(self.app, **middleware_config)
-
-    def schema(self, name, **options):
-        """Decorator for creating new routes around function and class definitions.
-        Usage::
-            from marshmallow import Schema, fields
-            @api.schema("Pet")
-            class PetSchema(Schema):
-                name = fields.Str()
-        """
-
-        def decorator(f):
-            self.openapi.add_schema(name=name, schema=f, **options)
-            return f
-
-        return decorator
 
     def path_matches_route(self, path):
         """Given a path portion of a URL, tests that it matches against any registered route.

@@ -3,8 +3,9 @@ import time
 from pydantic import BaseModel
 
 import dyne
+from dyne.ext.io.pydantic import expect, input
 
-api = dyne.API()
+app = dyne.App()
 
 
 class BookSchema(BaseModel):
@@ -12,16 +13,16 @@ class BookSchema(BaseModel):
     title: str
 
 
-@api.route("/book", methods=["POST"])
-@api.input(BookSchema)
-@api.expect(
+@app.route("/book", methods=["POST"])
+@input(BookSchema)
+@expect(
     {
         401: "Invalid access or refresh token",
         403: "Please verify your account",
     }
 )
 async def book_create(req, resp, *, data):
-    @api.background.task
+    @app.background.task
     def process_book(book):
         time.sleep(2)
         print(book)
@@ -30,6 +31,6 @@ async def book_create(req, resp, *, data):
     resp.media = {"msg": "created"}
 
 
-r = api.client.post("http://;/book", json={"price": 9.99, "title": "Rust book"})
+r = app.client.post("http://;/book", json={"price": 9.99, "title": "Rust book"})
 print(r.json())
 print(f"Route's _spec: {book_create._spec}")

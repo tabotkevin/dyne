@@ -1,12 +1,12 @@
 import dyne
 
-api = dyne.API()
+app = dyne.App()
 
 
-@api.route("/{greeting}")
+@app.route("/{greeting}")
 async def greet_world(req, resp, *, greeting):
     resp.text = f"{greeting}, world!"
 
 
 if __name__ == "__main__":
-    api.run()
+    app.run()

@@ -5,7 +5,7 @@ import dyne
 from dyne.ext.auth import authenticate
 from dyne.ext.auth.backends import BasicAuth, DigestAuth, MultiAuth, TokenAuth
 
-api = dyne.API()
+app = dyne.App()
 
 users = dict(john="password", admin="password123")
 
@@ -28,7 +28,7 @@ async def error_handler(req, resp, status_code=401):
     resp.status_code = status_code
 
 
-@api.route("/{greeting}")
+@app.route("/{greeting}")
 @authenticate(basic_auth)
 async def basic_greet(req, resp, *, greeting):
     resp.text = f"{greeting}, {req.state.user}!"
@@ -55,7 +55,7 @@ async def token_error_handler(req, resp, status_code=401):
     resp.status_code = status_code
 
 
-@api.route("/{greeting}")
+@app.route("/{greeting}")
 @authenticate(token_auth)
 async def token_greet(req, resp, *, greeting):
     resp.text = f"{greeting}, {req.state.user}!"
@@ -81,7 +81,7 @@ async def digest_error_handler(req, resp, status_code=401):
     resp.status_code = status_code
 
 
-@api.route("/{greeting}")
+@app.route("/{greeting}")
 @authenticate(digest_auth)
 async def digest_greet(req, resp, *, greeting):
     resp.text = f"{greeting}, {req.state.user}!"
@@ -135,13 +135,13 @@ async def get_user_roles(user):
     return roles.get(user)
 
 
-@api.route("/welcome")
+@app.route("/welcome")
 @authenticate(basic_auth, role="user")
 async def welcome(req, resp):
     resp.text = f"welcome back {req.state.user}!"
 
 
-@api.route("/admin")
+@app.route("/admin")
 @authenticate(basic_auth, role="admin")
 async def admin(req, resp):
     resp.text = f"Hello {req.state.user}, you are an admin!"
@@ -155,11 +155,11 @@ async def admin(req, resp):
 multi_auth = MultiAuth(digest_auth, token_auth, basic_auth)
 
 
-@api.route("/{greeting}")
+@app.route("/{greeting}")
 @authenticate(multi_auth)
 async def greet_world(req, resp, *, greeting):
     resp.text = f"{greeting}, world!"
 
 
 if __name__ == "__main__":
-    api.run()
+    app.run()

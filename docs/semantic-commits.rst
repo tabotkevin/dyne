@@ -40,7 +40,7 @@ Scopes help clarify what part of Dyne is affected. Examples::
 ```
 feat(core): add async request parser
 fix(graphql): resolve Strawberry context issue
-docs(api): update Response documentation
+docs(app): update Response documentation
 ```
 
 Scopes should be lowercase and short.
@@ -51,7 +51,7 @@ To mark a breaking change, add `!` after the type or scope::
 
 ```
 feat!: rewrite routing engine
-refactor(core)!: remove deprecated middleware API
+refactor(core)!: remove deprecated middleware App
 ```
 
 Also include a footer::
@@ -128,9 +128,9 @@ docs(contributing): expand PR guidelines
 ::
 
 ```
-refactor(response)!: remove sync fallback API
+refactor(response)!: remove sync fallback App
 
-BREAKING CHANGE: synchronous Response APIs removed.
+BREAKING CHANGE: synchronous Response Apps removed.
 ```
 
 ## Why We Use Semantic Commits

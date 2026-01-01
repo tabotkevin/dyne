@@ -1,8 +1,9 @@
 from pathlib import Path
 
-import dyne
 import graphene
 import pytest
+
+import dyne
 from dyne.ext.graphql.graphene import Schema
 
 
@@ -17,13 +18,13 @@ def current_dir():
 
 
 @pytest.fixture
-def api():
-    return dyne.API(debug=False, allowed_hosts=[";"])
+def app():
+    return dyne.App(debug=False, allowed_hosts=[";"])
 
 
 @pytest.fixture
-def session(api):
-    return api.client
+def session(app):
+    return app.client
 
 
 @pytest.fixture
@@ -38,13 +39,13 @@ def url():
 def flask():
     from flask import Flask
 
-    app = Flask(__name__)
+    flask_app = Flask(__name__)
 
-    @app.route("/")
+    @flask_app.route("/")
     def hello():
         return "Hello World!"
 
-    return app
+    return flask_app
 
 
 @pytest.fixture
