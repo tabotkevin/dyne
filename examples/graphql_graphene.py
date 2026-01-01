@@ -4,7 +4,7 @@ import dyne
 from dyne.ext.graphql import GraphQLView
 from dyne.ext.graphql.graphene import Schema
 
-api = dyne.API()
+app = dyne.App()
 
 
 class CreateMessage(graphene.Mutation):
@@ -31,10 +31,10 @@ class Query(graphene.ObjectType):
 
 
 schema = Schema(query=Query, mutation=Mutation)
-view = GraphQLView(api=api, schema=schema)
+view = GraphQLView(app=app, schema=schema)
 
-api.add_route("/graphql", view)
+app.add_route("/graphql", view)
 
 
 if __name__ == "__main__":
-    api.run()
+    app.run()

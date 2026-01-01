@@ -6,10 +6,12 @@ Introduction
 
 Dyne brings simplicity and elegance to API development, offering built-in features such as:
 
-- **Authentication**: Support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
-- **Input Validation**: The `@input` decorator makes validating request bodies easy.
-- **Response Serialization**: Use the `@output` decorator to serialize responses automatically.
-- **OpenAPI Documentation**: Full self-generated OpenAPI documentation with seamless integration for both `Pydantic` and `Marshmallow` schemas.
+* **Authentication**: Support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
+* **Input Validation**: The `@input` decorator makes validating request bodies easy.
+* **Response Serialization**: Use the `@output` decorator to serialize responses automatically.
+* **Request Contracts**: The ``@expect`` decorator allows you to document and enforce required headers, cookies, or specific request metadata.
+* **Asynchronous Events**: Use the @webhook decorator to define and document the webhooks your application has.
+* **OpenAPI Documentation**: Full self-generated OpenAPI documentation with seamless integration for both `Pydantic` and `Marshmallow` schemas.
 
 Here's how you can get started:
 
@@ -19,7 +21,8 @@ Here's how you can get started:
     from dyne.ext.auth.backends import BasicAuth
 
 
-    api = dyne.API()
+    app = dyne.App()
+    api = OpenAPI(app, description=description)
 
     # Basic Authentication Example
     users = dict(john="password", admin="password123")
@@ -42,28 +45,32 @@ Here's how you can get started:
     async def get_user_roles(user):
         return roles.get(user)
 
-### Example: Book Creation API
+Example: Book Creation API
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example demonstrates a clean and minimal API endpoint for creating a new book. The API supports file uploads with built-in validation for file extensions and file sizes.
 
-**SQLAlchemy Model:**
-
 .. code-block:: python
 
-    class Book(Base):
+    import dyne
+    from dyne.ext.auth import authenticate
+    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.io.marshmallow import expect, input, output
+    from dyne.ext.io.marshmallow.fields import FileField
+
+    app = dyne.App()
+    api = OpenAPI(app, description=description)
+    basic_auth = BasicAuth()
+
+    class Book(Base):  # SQLAlchemy Model
         __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
         title = Column(String)
         cover = Column(String, nullable=True)
 
-**Schemas: Marshmallow**
 
-.. code-block:: python
-
-    from dyne.ext.io.marshmallow.fields import FileField
-
-    class BookSchema(Schema):
+    class BookSchema(Schema): # Schemas: Marshmallow
         id = fields.Integer(dump_only=True)
         price = fields.Float()
         title = fields.Str()
@@ -74,14 +81,8 @@ This example demonstrates a clean and minimal API endpoint for creating a new bo
         title = fields.Str()
         image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)  # Built-in file validation
 
-**Endpoint:**
 
-.. code-block:: python
-
-    from dyne.ext.auth import authenticate
-    from dyne.ext.io.marshmallow import expect, input, output
-
-    @api.route("/create", methods=["POST"])
+    @app.route("/create", methods=["POST"])
     @authenticate(basic_auth, role="user")
     @input(BookCreateSchema, location="form")
     @output(BookSchema)
@@ -110,12 +111,12 @@ Class-Based Views
 
 Class-based views (and setting some headers and stuff)::
 
-    @api.route("/{greeting}")
+    @app.route("/{greeting}")
     class GreetingResource:
         def on_request(self, req, resp, *, greeting):   # or on_get...
             resp.text = f"{greeting}, world!"
             resp.headers.update({'X-Life': '42'})
-            resp.status_code = api.status_codes.HTTP_416
+            resp.status_code = app.status.HTTP_416
 
 
 Background Tasks
@@ -123,10 +124,10 @@ Background Tasks
 
 Here, you can spawn off a background thread to run any function, out-of-request::
 
-    @api.route("/")
+    @app.route("/")
     def hello(req, resp):
 
-        @api.background.task
+        @app.background.task
         def sleep(s=10):
             time.sleep(s)
             print("slept!")
@@ -145,7 +146,7 @@ which act as thin wrappers around the underlying GraphQL backends.
 
 With either backend, you can define GraphQL schemas containing queries, mutations, or both, and expose them via a ``GraphQLView``.
 
-The view is added to a Dyne API route (for example, ``/graphql``). The endpoint can then be accessed through a GraphQL client, your browser, or tools such as Postman.
+The view is added to a Dyne App route (for example, ``/graphql``). The endpoint can then be accessed through a GraphQL client, your browser, or tools such as Postman.
 When accessed from a browser, the endpoint will render a GraphiQL interface, allowing you to easily explore and interact with your GraphQL schema.
 
 
@@ -199,7 +200,7 @@ The following example demonstrates how to set up a ``Strawberry`` schema and rou
     from dyne.ext.graphql import GraphQLView
     from dyne.ext.graphql.strawberry import Schema
 
-    api = dyne.API()
+    app = dyne.App()
 
     # Define a response type for mutations
     @strawberry.type
@@ -225,8 +226,8 @@ The following example demonstrates how to set up a ``Strawberry`` schema and rou
     schema = Schema(query=Query, mutation=Mutation)
 
     # Create GraphQL view and add it to the API
-    view = GraphQLView(api=api, schema=schema)
-    api.add_route("/graphql", view)
+    view = GraphQLView(app=app, schema=schema)
+    app.add_route("/graphql", view)
 
 
 You can make use of Dyne’s `Request` and `Response` objects in your GraphQL resolvers through ``info.context['request']`` and ``info.context['response']``. 
@@ -244,7 +245,7 @@ The following example demonstrates how to set up a **Graphene** schema and route
     from dyne.ext.graphql import GraphQLView
     from dyne.ext.graphql.graphene import Schema
 
-    api = dyne.API()
+    app = dyne.App()
 
     # Define a Mutation for Graphene
     class CreateMessage(graphene.Mutation):
@@ -273,8 +274,8 @@ The following example demonstrates how to set up a **Graphene** schema and route
     schema = Schema(query=Query, mutation=Mutation)
 
     # Create GraphQL view and add it to the API
-    view = GraphQLView(api=api, schema=schema)
-    api.add_route("/graphql", view)
+    view = GraphQLView(app=app, schema=schema)
+    app.add_route("/graphql", view)
 
 Just like with **Strawberry**, Dyne’s `Request` and `Response` objects can be accessed in your GraphQL resolvers using ``info.context['request']`` and ``info.context['response']``.
 
@@ -291,7 +292,7 @@ Important Notes
 GraphQL Queries and Mutations
 ---------------------
 
-Once your API is set up with either **Strawberry** or **Graphene**, you can interact with it by making queries and mutations via the `/graphql` route.
+Once your App is set up with either **Strawberry** or **Graphene**, you can interact with it by making queries and mutations via the `/graphql` route.
 
 Here are some example GraphQL queries and mutations you can use:
 
@@ -388,17 +389,17 @@ To use Pydantic, import the decorator from `dyne.ext.io.pydantic`.
 
 .. code-block:: python
 
+  import dyne
   from pydantic import BaseModel, Field
   from dyne.ext.io.pydantic import input
-  import dyne
 
-  api = dyne.API()
+  app = dyne.App()
 
   class Book(BaseModel):
       title: str
       price: float = Field(gt=0)
 
-  @api.route("/books", methods=["POST"])
+  @app.route("/books", methods=["POST"])
   @input(Book)  # Default location="media", default key="data"
   async def create_book(req, resp, *, data: Book):
       # 'data' is a validated Pydantic instance
@@ -412,17 +413,17 @@ To use Marshmallow, import the decorator from ``dyne.ext.io.marshmallow``.
 
 .. code-block:: python
 
+    import dyne
     from marshmallow import Schema, fields
     from dyne.ext.io.marshmallow import input
-    import dyne
 
-    api = dyne.API()
+    app = dyne.App()
 
     class QuerySchema(Schema):
         page = fields.Int(load_default=1)
         limit = fields.Int(load_default=10)
 
-    @api.route("/books", methods=["GET"])
+    @app.route("/books", methods=["GET"])
     @input(QuerySchema, location="query") # key defaults to "query"
     async def list_books(req, resp, *, query):
         # 'query' is a validated dictionary
@@ -439,7 +440,7 @@ You can validate multiple sources on a single endpoint and customize the variabl
   class HeaderSchema(BaseModel):
       x_api_key: str = Field(alias="X-API-Key")
 
-  @api.route("/secure-data")
+  @app.route("/secure-data")
   @input(HeaderSchema, location="headers")
   @input(QuerySchema, location="query", key="params")
   async def secure_endpoint(req, resp, *, headers, params):
@@ -457,9 +458,6 @@ Key Differences
 | **Import**      | ``dyne.ext.io.pydantic.input``    | ``dyne.ext.io.marshmallow.input``       |
 +-----------------+-----------------------------------+-----------------------------------------+
 | **Return Type** | A native Python dictionary.       | A native Python dictionary.             | 
-+-----------------+-----------------------------------+-----------------------------------------+
-| **OpenAPI**     | Automatically generates JSON      | Integrates with APISpec                 |
-|                 | Schema from model fields.         | Marshmallow plugin.                     |
 +-----------------+-----------------------------------+-----------------------------------------+
 
 
@@ -483,11 +481,11 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
 
 .. code-block:: python
 
+    import dyne
     from pydantic import BaseModel, ConfigDict
     from dyne.ext.io.pydantic import output
-    import dyne
 
-    api = dyne.API()
+    app = dyne.App()
 
     # Define an example SQLAlchemy model
     class Book(Base):
@@ -504,7 +502,7 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
         # Required for SQLAlchemy integration
         model_config = ConfigDict(from_attributes=True)
 
-    @api.route("/books/{id}")
+    @app.route("/books/{id}")
     @output(BookSchema)
     async def get_book(req, resp, id):
         # Fetch a SQLAlchemy object
@@ -514,7 +512,7 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
         # The extension converts the ORM model to JSON automatically
         resp.obj = book
 
-    @api.route("/all-books")
+    @app.route("/all-books")
     @output(BookSchema)
     async def list_all(req, resp):
         # resp.obj can also be a list or a query object
@@ -531,7 +529,7 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
     from dyne.ext.io.marshmallow import output
     import dyne
 
-    api = dyne.API()
+    app = dyne.App()
 
     # Define an example SQLAlchemy model
     class Book(Base):
@@ -547,7 +545,7 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
 
     books = BookSchema(many=True)
 
-    @api.route("/books/{id}")
+    @app.route("/books/{id}")
     @output(BookSchema)
     async def get_book(req, resp, id):
         # Fetch a SQLAlchemy object
@@ -557,7 +555,7 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
         # The extension converts the ORM model to JSON automatically
         resp.obj = book
 
-    @api.route("/all-books")
+    @app.route("/all-books")
     @output(books)
     async def list_all(req, resp):
         # resp.obj can also be a list or a query object
@@ -580,12 +578,13 @@ The decorator is flexible and supports three distinct formats depending on the l
 Usage Patterns
 ~~~~~~~~~~~~~~
 
-### 1. Description-Only Responses
+1. Description-Only Responses
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Use this format for simple errors when the status code and a message are sufficient.
 
 .. code-block:: python
 
-    @api.route("/secure-data", methods=["GET"])
+    @app.route("/secure-data", methods=["GET"])
     @expect({
         401: 'Invalid access or refresh token',
         403: 'Insufficient permissions'
@@ -595,7 +594,8 @@ Use this format for simple errors when the status code and a message are suffici
         pass
 
 
-### 2. Schema-Only Responses
+2. Schema-Only Responses
+^^^^^^^^^^^^^^^^^^^^^^^^
 Use this form when the response includes a **JSON body**, but the description can be inferred or is not necessary (e.g., "Unauthorized" for 401).
 
 Sample Error Schemas
@@ -642,7 +642,7 @@ To provide structured error responses in your documentation, define your error s
 
 .. code-block:: python
 
-    @api.route("/secure-data", methods=["GET"])
+    @app.route("/secure-data", methods=["GET"])
     @expect({
         401: InvalidTokenSchema,
         403: InsufficientPermissionsSchema
@@ -651,12 +651,13 @@ To provide structured error responses in your documentation, define your error s
         pass
 
 
-### 3. Schema + Description Responses (Recommended)
+3. Schema + Description Responses (Recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Use this form when you want **full control** over both the response schema and its description.
 
 .. code-block:: python
 
-    @api.route("/secure-data", methods=["GET"])
+    @app.route("/secure-data", methods=["GET"])
     @expect({
         401: (InvalidTokenSchema, 'Invalid access or refresh token'),
         403: (InsufficientPermissionsSchema, 'Requires elevated administrative privileges')
@@ -668,7 +669,8 @@ Use this form when you want **full control** over both the response schema and i
 Webhooks
 _________
 
-The `@webhook` decorator is used to mark a standard endpoint as a webhook receiver. This attaches metadata to the route, allowing Dyne to identify it in generated documentation (like OpenAPI Callbacks) or for internal routing.
+The `@webhook` decorator is used to mark a standard endpoint as a webhook receiver. 
+This attaches metadata to the route, allowing Dyne to identify it in generated documentation (like OpenAPI Callbacks) or for internal routing.
 
 The decorator is flexible and supports two calling conventions:
 
@@ -684,8 +686,8 @@ When used without parentheses, the webhook uses the function name as its default
 
 .. code-block:: python
 
-@api.route("/events", methods=["POST"])
-@api.webhook
+@app.route("/events", methods=["POST"])
+@webhook
 async def handle_event(req, resp):
     pass
 
@@ -697,27 +699,27 @@ You can provide a specific name for the webhook using the `name` argument. This 
 
 .. code-block:: python
 
-@api.route("/transaction", methods=["POST"])
-@api.webhook(name="transaction_callback")
+@app.route("/transaction", methods=["POST"])
+@webhook(name="transaction_callback")
 async def process_payment(req, resp):
     pass
 
 
-* **Note:** A function decorated with ``@webhook`` automatically inherits the HTTP method defined in the ``@api.route`` decorator. For example, if your route is configured for ``POST``, the webhook documentation will reflect that it expects a ``POST`` request from the external caller.
+* **Note:** A function decorated with ``@webhook`` automatically inherits the HTTP method defined in the ``@app.route`` decorator. For example, if your route is configured for ``POST``, the webhook documentation will reflect that it expects a ``POST`` request from the external caller.
 
 Example
-~~~~~~~
+^^^^^^^
 
 .. code-block:: python
 
-    @api.route("/transaction", methods=["POST"])
-    @api.webhook(name="transaction")
-    @api.input(BookSchema)
+    @app.route("/transaction", methods=["POST"])
+    @webhook(name="transaction")
+    @input(BookSchema)
     async def purchase_book(req, resp, *, data):
         """
         Receives a book purchase notification and processes it asynchronously.
         """
-        @api.background.task
+        @app.background.task
         def process(book):
             # Simulate heavy processing
             time.sleep(2)
@@ -730,14 +732,19 @@ Example
 Unified Example: ``@input``, ``@output``, ``@expect`` and ``@webhook``
 ----------------------------------------------------------------------
 
-In a production endpoint, you will typically use all three decorators together to create a fully validated and documented API.
+In a production endpoint, you will typically use all three decorators together to create a fully validated and documented API using the OpenAPI extension.
 
 .. code-block:: python
 
+  import dyne
   from dyne.exceptions import abort
   from dyne.ext.io.pydantic import expect, input, output, webhook
+  from dyne.ext.openapi import OpenAPI
 
-  @api.route("/update-price/{id}", methods=["PATCH"])
+  app = dyne.App()
+  api = OpenAPI(app, description=description)
+
+  @app.route("/update-price/{id}", methods=["PATCH"])
   @webhook                      # Documents this endpoint as a webhook.
   @input(PriceUpdateSchema)     # Validate request body.
   @output(BookSchema)           # Serialize updated ORM object.
@@ -803,7 +810,7 @@ Basic Authentication
     from dyne.ext.auth import authenticate
     from dyne.ext.auth.backends import BasicAuth
 
-    api = dyne.API()
+    app = dyne.App()
     users = dict(john="password", admin="password123")
 
     basic_auth = BasicAuth()
@@ -814,7 +821,7 @@ Basic Authentication
             return username
         return None
 
-    @api.route("/greet")
+    @app.route("/greet")
     @authenticate(basic_auth)
     async def basic_greet(req, resp):
         resp.text = f"Hello, {req.state.user}!"
@@ -845,7 +852,7 @@ Token Authentication
             return "David"
         return None
 
-    @api.route("/dashboard")
+    @app.route("/dashboard")
     @authenticate(token_auth)
     async def secure_route(req, resp):
         resp.media = {"data": "Top Secret", "username": req.state.user}
@@ -873,7 +880,7 @@ Digest Authentication
     async def get_password(username):
         return users.get(username)
 
-    @api.route("/greet")
+    @app.route("/greet")
     @authenticate(digest_auth)
     async def digest_greet(req, resp):
         resp.text = f"Hello to {req.state.user}"
@@ -967,7 +974,7 @@ The ``MultiAuth`` backend allows you to support multiple authentication methods 
     # Support Token and Basic and Digest authentication
     multi_auth = MultiAuth(digest_auth, token_auth, basic_auth)
 
-    @api.route("/{greeting}")
+    @app.route("/{greeting}")
     @authenticate(multi_auth)
     async def multi_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
@@ -1022,13 +1029,13 @@ Sample code using the ``basic_auth`` backends:
         return roles.get(user)
 
     # Both `john`` and ``admin_user`` can access this ruote
-    @api.route("/dashboard")
+    @app.route("/dashboard")
     @authenticate(basic_auth, role="user")
     async def dashboard(req, resp):
         resp.text = f"Welcome to the user dashboard, {req.state.user}!"
 
     # Only ``admin_user`` can access this ruote
-    @api.route("/system-settings")
+    @app.route("/system-settings")
     @authenticate(basic_auth, role="admin")
     async def admin_settings(req, resp):
         resp.text = "Sensitive administrative settings."
@@ -1050,7 +1057,18 @@ When using RBAC, the client sends credentials normally. The server handles the p
 OpenAPI Documentation
 ---------------------
 
-Dyne generates an **OpenAPI 3.0.x** specification by inspecting the metadata left behind by your extension decorators. When you use decorators from `dyne.ext.io` or `dyne.ext.auth`, you are not just validating requests—you are also building your API's documentation.
+Dyne utilizes a plugin-based architecture for API documentation, decoupling the documentation engine from the core ``:class:App`` to ensure the framework remains lightweight. 
+By integrating the OpenAPI plugin from ``dyne.ext.openapi``, the system automatically generates a compliant OpenAPI 3.0.x specification by inspecting the metadata left 
+behind by extension decorators—such as those from ``dyne.ext.io`` or ``dyne.ext.auth``. Consequently, you are never just validating requests, serializing responses, 
+or enforcing authentication; you are simultaneously building your API's documentation in real-time.
+
+It is important to understand that decorators like ``@input``, ``@output`` and ``@authenticate`` are designed to work independently of the documentation system:
+
+1.  **At Runtime:** These decorators manage the essential logic of the request-response cycle. They perform the critical tasks of **validating incoming request data** and **serializing outgoing responses** using your preferred strategy (Pydantic or Marshmallow). Furthermore, they manage the security layer of your application by providing robust **Authentication** (supporting Basic, Token, and Digest schemes) and fine-grained **Authorization** for your endpoints.
+2.  **For Documentation:** When combined with the ``OpenAPI`` extension, these same decorators serve as metadata providers. The extension introspects the schemas and security requirements defined by these decorators to automatically populate the paths, components, and security schemes in your ``schema.yml``.
+
+**The Power of Synergy:** By using these decorators, you eliminate the need to maintain a separate documentation file. Your code becomes the single source of truth for both application logic and the API contract.
+
 
 Configuring the API Metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1060,6 +1078,7 @@ To provide a title and description for your API, assign a docstring or a configu
 .. code-block:: python
 
     import dyne
+    from dyne.ext.openapi import OpenAPI
 
 
     description = """ 
@@ -1071,27 +1090,29 @@ To provide a title and description for your API, assign a docstring or a configu
     **Support:** `support@example.com`
     """
 
-    api = dyne.API(description=description)
+    app = dyne.App()
+    api = OpenAPI(app, description=description)
 
-    Other variables include:
-    - title e.g "Book Store",
-    - version e.g "1.0",
-    - description=None,
-    - terms_of_service=None,
-    - contact=None,
-    - license=None,
-    - openapi e.g "3.0.1",
-    - openapi_theme e.g ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
+
+  Other variables include:
+  - title e.g "Book Store",
+  - version e.g "1.0",
+  - terms_of_service
+  - contact
+  - license
+  - openapi e.g "3.0.1",
+  - theme e.g ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
 
 The Documentation Decorators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The documentation engine gathers data from four primary sources:
+The documentation engine gathers data from five primary sources:
 
 * **authenticate (auth extension)**: Documents security schemes (Basic, Bearer, Digest, etc.) and required roles.
 * **input (io extensions)**: Documents request bodies(josn, form and yaml), query parameters, cookies, headers and file uploads.
 * **output (io extensions)**: Documents the structure of successful (2xx) responses.
 * **expect (io extensions)**: Documents success and error codes (2xx, 3xx, 4xx, 5xx) and specific response messages.
+* **@webhook**: Documents endpoints as webhooks.
 
 Full Example: Creating a Book with File Upload
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1100,6 +1121,8 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
 
 .. code-block:: python
 
+    import dyne
+    from dyne.ext.openapi import OpenAPI
     from marshmallow import Schema, fields
     from dyne.ext.auth import authenticate
     from dyne.ext.auth.backends import BasicAuth
@@ -1119,9 +1142,20 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
         # FileField is automatically documented as a 'binary' format string
         image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
 
+    description = """ 
+    User Management API
+    -------------------
+    This API allows for comprehensive management of users and books.
+
+    **Base URL:** `https://api.example.com/v1`
+    **Support:** `support@example.com`
+    """
+
+    app = dyne.App()
+    api = OpenAPI(app, description=description)
     basic_auth = BasicAuth()
 
-    @api.route("/book", methods=["POST"])
+    @app.route("/book", methods=["POST"])
     @authenticate(basic_auth, role="admin")
     @input(BookCreateSchema, location="form")
     @output(BookSchema, status_code=201)
@@ -1147,12 +1181,15 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
 Viewing the Documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Once your routes are decorated, Dyne automatically hosts the documentation at:
+Once you have initialized the `OpenAPI` plugin and your routes are decorated, the documentation is automatically served by your application. 
+By default, there are two primary endpoints available.
 
-* **Interactive UI**: `/docs` (Swagger UI)
-* **Raw Specification**: `/openapi.json`
+* **Interactive UI**: ``/docs`` (Swagger UI)
+* **Raw Specification**: ``/schema.yml``
 
 This documentation is always in sync with your code. If you add a field to your Marshmallow / Pydantic model or change a required role in your Auth backend, the documentation updates automatically on the next refresh.
+
+> **Note:** Without the ``OpenAPI`` extension initialized, these decorators still protect your routes via validation, but no ``/docs`` or ``/schema.yml`` will be generated.
 
 
 Mount a WSGI / ASGI Apps (e.g. Flask, Starlette,...)
@@ -1163,14 +1200,14 @@ dyne gives you the ability to mount another ASGI / WSGI app at a subroute::
     import dyne
     from flask import Flask
 
-    api = dyne.API()
+    app = dyne.App()
     flask = Flask(__name__)
 
     @flask.route('/')
     def hello():
         return 'hello'
 
-    api.mount('/flask', flask)
+    app.mount('/flask', flask)
 
 That's it!
 
@@ -1179,7 +1216,7 @@ Single-Page Web Apps
 
 If you have a single-page webapp, you can tell dyne to serve up your ``static/index.html`` at a route, like so::
 
-    api.add_route("/", static=True)
+    app.add_route("/", static=True)
 
 This will make ``index.html`` the default response to all undefined routes.
 
@@ -1221,21 +1258,21 @@ dyne has built-in support for cookie-based sessions. To enable cookie-based sess
 
 A cookie called ``dyne-Session`` will be set, which contains all the data in ``resp.session``. It is signed, for verification purposes.
 
-You can easily read a Request's session data, that can be trusted to have originated from the API::
+You can easily read a Request's session data, that can be trusted to have originated from the App::
 
     >>> req.session
     {'username': 'john'}
 
-**Note**: if you are using this in production, you should pass the ``secret_key`` argument to ``API(...)``::
+**Note**: if you are using this in production, you should pass the ``secret_key`` argument to ``App(...)``::
 
-    api = dyne.API(secret_key=os.environ['SECRET_KEY'])
+    app = dyne.App(secret_key=os.environ['SECRET_KEY'])
 
 Using ``before_request``
 ------------------------
 
 If you'd like a view to be executed before every request, simply do the following::
 
-    @api.route(before_request=True)
+    @app.route(before_request=True)
     def prepare_response(req, resp):
         resp.headers["X-Pizza"] = "42"
 
@@ -1243,7 +1280,7 @@ Now all requests to your HTTP Service will include an ``X-Pizza`` header.
 
 For ``websockets``::
 
-    @api.route(before_request=True, websocket=True)
+    @app.route(before_request=True, websocket=True)
     def prepare_response(ws):
         await ws.accept()
 
@@ -1253,7 +1290,7 @@ WebSocket Support
 
 dyne supports WebSockets::
 
-    @api.route('/ws', websocket=True)
+    @app.route('/ws', websocket=True)
     async def websocket(ws):
         await ws.accept()
         while True:
@@ -1292,7 +1329,7 @@ Global Application State
 ------------------------
 
 To store variables that should be accessible globally (such as database connection pools, 
-configuration settings, or shared caches), use the ``api.state`` attribute.
+configuration settings, or shared caches), use the ``app.state`` attribute.
 
 this state is designed to be:
 
@@ -1308,10 +1345,10 @@ The best place to initialize application state is within a ``startup`` event han
 
 .. code-block:: python
 
-    @api.on_event("startup")
+    @app.on_event("startup")
     async def startup():
-        api.state.db = await create_database_pool()
-        api.state.admin_email = "admin@example.com"
+        app.state.db = await create_database_pool()
+        app.state.admin_email = "admin@example.com"
 
 This ensures resources are created once and reused across requests.
 
@@ -1323,7 +1360,7 @@ Inside your route handlers, you can access the application state through the
 
 .. code-block:: python
 
-    @api.route("/config")
+    @app.route("/config")
     async def get_config(req, resp):
         email = req.app.state.admin_email
         resp.media = {"contact": email}
@@ -1335,9 +1372,9 @@ Long-lived resources should be properly closed during application shutdown.
 
 .. code-block:: python
 
-    @api.on_event("shutdown")
+    @app.on_event("shutdown")
     async def shutdown():
-        await api.state.db.close()
+        await app.state.db.close()
 
 State vs. Request State
 -----------------------
@@ -1371,20 +1408,20 @@ dyne comes with a first-class, well supported test client for your ASGI web serv
 
 Here's an example of a test (written with pytest)::
 
-    import myapi
+    import dyne
 
     @pytest.fixture
-    def api():
-        return myapi.api
+    def app():
+        return dyne.App()
 
-    def test_response(api):
+    def test_response(app):
         hello = "hello, world!"
 
-        @api.route('/some-url')
+        @app.route('/some-url')
         def some_view(req, resp):
             resp.text = hello
 
-        r = api.client.get(url=api.url_for(some_view))
+        r = app.client.get(url=app.url_for(some_view))
         assert r.text == hello
 
 HSTS (Redirect to HTTPS)
@@ -1394,7 +1431,7 @@ Want HSTS (to redirect all traffic to HTTPS)?
 
 ::
 
-    api = dyne.API(enable_hsts=True)
+    app = dyne.App(enable_hsts=True)
 
 
 Boom.
@@ -1406,12 +1443,12 @@ Want `CORS <https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/>`_ ?
 
 ::
 
-    api = dyne.API(cors=True)
+    app = dyne.App(cors=True)
 
 
 The default parameters used by **dyne** are restrictive by default, so you'll need to explicitly enable particular origins, methods, or headers, in order for browsers to be permitted to use them in a Cross-Domain context.
 
-In order to set custom parameters, you need to set the ``cors_params`` argument of ``api``, a dictionary containing the following entries:
+In order to set custom parameters, you need to set the ``cors_params`` argument of ``app``, a dictionary containing the following entries:
 
 * ``allow_origins`` - A list of origins that should be permitted to make cross-origin requests. eg. ``['https://example.org', 'https://www.example.org']``. You can use ``['*']`` to allow any origin.
 * ``allow_origin_regex`` - A regex string to match against origins that should be permitted to make cross-origin requests. eg. ``'https://.*\.example\.org'``.
@@ -1430,7 +1467,7 @@ A 400 response will be raised, if a request does not match any of the provided p
 
 ::
 
-    api = dyne.API(allowed_hosts=['example.com', 'tenant.example.com'])
+    app = dyne.App(allowed_hosts=['example.com', 'tenant.example.com'])
 
 * ``allowed_hosts`` - A list of allowed hostnames. 
 

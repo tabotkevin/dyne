@@ -12,8 +12,10 @@
 import dyne
 from dyne.ext.auth import authenticate
 from dyne.ext.io.pydantic import input, output, expect
+from dyne.ext.openapi import OpenAPI
 
 api = dyne.API()
+api = OpenAPI(app, description=description)
 
 
 @api.route("/book", methods=["POST"])

@@ -12,7 +12,7 @@ The first thing you need to do is declare a web service::
 
     import dyne
 
-    api = dyne.API()
+    app = dyne.App()
 
 Hello World!
 ------------
@@ -21,16 +21,16 @@ Then, you can add a view / route to it.
 
 Here, we'll make the root URL say "hello world!"::
 
-    @api.route("/")
+    @app.route("/")
     def hello_world(req, resp):
         resp.text = "hello, world!"
 
 Run the Server
 --------------
 
-Next, we can run our web service easily, with ``api.run()``::
+Next, we can run our web service easily, with ``app.run()``::
 
-    api.run()
+    app.run()
 
 This will spin up a production web server on port ``5042``, ready for incoming HTTP requests.
 
@@ -42,7 +42,7 @@ Accept Route Arguments
 
 If you want dynamic URLs, you can use Python's familiar *f-string syntax* to declare variables in your routes::
 
-    @api.route("/hello/{who}")
+    @app.route("/hello/{who}")
     def hello_to(req, resp, *, who):
         resp.text = f"hello, {who}!"
 
@@ -50,7 +50,7 @@ A ``GET`` request to ``/hello/brettcannon`` will result in a response of ``hello
 
 Type convertors are also available::
 
-    @api.route("/add/{a:int}/{b:int}")
+    @app.route("/add/{a:int}/{b:int}")
     async def add(req, resp, *, a, b):
         resp.text = f"{a} + {b} = {a + b}"
 
@@ -59,10 +59,10 @@ Supported types: ``str``, ``int`` and ``float``.
 Returning JSON / YAML
 ---------------------
 
-If you want your API to send back JSON, simply set the ``resp.media`` property to a JSON-serializable Python object::
+If you want your App to send back JSON, simply set the ``resp.media`` property to a JSON-serializable Python object::
 
 
-    @api.route("/hello/{who}/json")
+    @app.route("/hello/{who}/json")
     def hello_to(req, resp, *, who):
         resp.media = {"hello": who}
 
@@ -81,7 +81,7 @@ Usage::
 
   templates = Templates()
 
-  @api.route("/hello/{name}/html")
+  @app.route("/hello/{name}/html")
   def hello(req, resp, name):
       resp.html = templates.render("hello.html", name=name)
 
@@ -91,11 +91,11 @@ Also a ``render_async`` is available::
     templates = Templates(enable_async=True)
     resp.html = await templates.render_async("hello.html", who=who)
 
-You can also use the existing ``api.template(filename, *args, **kwargs)`` to render templates::
+You can also use the existing ``app.template(filename, *args, **kwargs)`` to render templates::
 
-    @api.route("/hello/{who}/html")
+    @app.route("/hello/{who}/html")
     def hello_html(req, resp, *, who):
-        resp.html = api.template('hello.html', who=who)
+        resp.html = app.template('hello.html', who=who)
 
 
 Setting Response Status Code
@@ -103,9 +103,9 @@ Setting Response Status Code
 
 If you want to set the response status code, simply set ``resp.status_code``::
 
-    @api.route("/416")
+    @app.route("/416")
     def teapot(req, resp):
-        resp.status_code = api.status_codes.HTTP_416   # ...or 416
+        resp.status_code = app.status.HTTP_416   # ...or 416
 
 
 Setting Response Headers
@@ -113,7 +113,7 @@ Setting Response Headers
 
 If you want to set a response header, like ``X-Pizza: 42``, simply modify the ``resp.headers`` dictionary::
 
-    @api.route("/pizza")
+    @app.route("/pizza")
     def pizza_pizza(req, resp):
         resp.headers['X-Pizza'] = '42'
 
@@ -129,10 +129,10 @@ Here, we'll process our data in the background, while responding immediately to 
 
     import time
 
-    @api.route("/incoming")
+    @app.route("/incoming")
     async def receive_incoming(req, resp):
 
-        @api.background.task
+        @app.background.task
         def process_data(data):
             """Just sleeps for three seconds, as a demo."""
             time.sleep(3)
@@ -179,7 +179,7 @@ Marshmallow integration uses the ``FileField`` to define constraints like allowe
             max_size=5 * 1024 * 1024  # 5MB
         )
 
-    @api.route("/upload", methods=["POST"])
+    @app.route("/upload", methods=["POST"])
     @input(UploadSchema, location="form")
     async def upload(req, resp, *, data):
         image = data.pop("image") # 'image' is a validated File object.
@@ -214,7 +214,7 @@ Pydantic integration allows you to create reusable file types by subclassing ``F
             arbitrary_types_allowed=True
         )
 
-    @api.route("/upload", methods=["POST"])
+    @app.route("/upload", methods=["POST"])
     @input(UploadSchema, location="form")
     async def upload(req, resp, *, data):
         image = data.pop("image") # 'image' is a validated File object.
@@ -317,10 +317,10 @@ If you prefer not to use a schema, you can access uploaded files directly from t
 
 .. code-block:: python
 
-    @api.route("/native-upload", methods=["POST"])
+    @app.route("/native-upload", methods=["POST"])
     async def upload_file(req, resp):
 
-        @api.background.task
+        @app.background.task
         def process_file(file_data):
             with open(f"./{file_data['filename']}", 'wb') as f:
                 f.write(file_data['content'])
@@ -342,5 +342,5 @@ You can test your file upload endpoints using ``httpx`` or any standard HTTP cli
     files = {'image': ('photo.jpg', open('photo.jpg', 'rb'), 'image/jpeg')}
     data = {'description': 'A beautiful sunset'}
 
-    r = api.client.post("http://;/native-upload", data=data, files=files)
+    r = app.client.post("http://;/native-upload", data=data, files=files)
     print(r.json())

@@ -1,23 +1,23 @@
 import dyne
 
-api = dyne.API()
+app = dyne.App()
 
 
-@api.route("/greet/{greeting}")
+@app.route("/greet/{greeting}")
 async def greet(req, resp, *, greeting):  # Default `GET` request.
     resp.text = f"{greeting}, world!"
 
 
-@api.route("/create", methods=["POST"])
+@app.route("/create", methods=["POST"])
 async def book(req, resp):
     resp.media = await req.media()
 
 
-@api.route("/book/{id}")
+@app.route("/book/{id}")
 class BookResource:
     def on_get(self, req, resp, *, id):
         resp.text = f"Book - {id}"
-        resp.status_code = api.status_codes.HTTP_201
+        resp.status_code = app.status.HTTP_201
 
     async def on_post(self, req, resp, *, id):
         resp.media = await req.media()
@@ -27,4 +27,4 @@ class BookResource:
 
 
 if __name__ == "__main__":
-    api.run()
+    app.run()

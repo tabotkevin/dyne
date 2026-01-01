@@ -10,37 +10,37 @@ The Basics
 
 Your repository should look like this::
 
-    api.py  test_api.py
+    app.py  test_app.py
 
-``$ cat api.py``::
+``$ cat app.py``::
 
     import dyne
 
-    api = dyne.API()
+    app = dyne.App()
 
-    @api.route("/")
+    @app.route("/")
     def hello_world(req, resp):
         resp.text = "hello, world!"
 
     if __name__ == "__main__":
-        api.run()
+        app.run()
 
 
 Writing Tests
 -------------
 
-``$ cat test_api.py``::
+``$ cat test_app.py``::
 
     import pytest
-    import api as service
+    import app as service
 
     @pytest.fixture
-    def api():
-        return service.api
+    def app():
+        return service.app
 
 
-    def test_hello_world(api):
-        r = api.client.get("/")
+    def test_hello_world(app):
+        r = app.client.get("/")
         assert r.text == "hello, world!"
 
 ``$ pytest``::
@@ -52,7 +52,7 @@ Writing Tests
 (Optional) Proper Python Package
 --------------------------------
 
-Optionally, you can not rely on relative imports, and instead install your api as a proper package. This requires:
+Optionally, you can not rely on relative imports, and instead install your app as a proper package. This requires:
 
 1. Install `Rye` package manager from `https://rye-up.com`.
 2. ``$ rye sync``

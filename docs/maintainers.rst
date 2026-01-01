@@ -12,7 +12,7 @@ Individuals with full decision-making authority over the project:
 
 - **Tabot Kevin** (Lead Maintainer & Project Creator)
   - GitHub: https://github.com/tabotkevin
-  - Responsibilities: architecture, releases, governance, API design, security oversight.
+  - Responsibilities: architecture, releases, governance, App design, security oversight.
 
 Additional maintainers may be added as the project grows.
 

@@ -9,8 +9,9 @@ from dyne.ext.auth import authenticate
 from dyne.ext.auth.backends import BasicAuth
 from dyne.ext.io.pydantic import expect, input, output, webhook
 from dyne.ext.io.pydantic.fields import FileField
+from dyne.ext.openapi import OpenAPI
 
-doc = """
+description = """
 API Documentation
 
 This module provides an interface to interact with the user management API. It allows for operations such as retrieving user information, creating new users, updating existing users, and deleting users.
@@ -26,7 +27,8 @@ For further inquiries or support, please contact support@example.com.
 """
 
 
-api = dyne.API(description=doc)
+app = dyne.App()
+api = OpenAPI(app, description=description)
 
 
 users = dict(john="password", admin="password123")
@@ -123,7 +125,7 @@ class InsufficientPermissionsSchema(BaseModel):
     required_role: str = "admin"
 
 
-@api.route("/create", methods=["POST"])
+@app.route("/create", methods=["POST"])
 @authenticate(basic_auth, role="user")
 @input(BookCreateSchema, location="form")
 @output(BookSchema)
@@ -149,7 +151,7 @@ async def create(req, resp, *, data):
     resp.obj = book
 
 
-@api.route("/book/{id}", methods=["GET"])
+@app.route("/book/{id}", methods=["GET"])
 @authenticate(basic_auth)
 @output(BookSchema)
 async def book(req, resp, *, id):
@@ -158,7 +160,7 @@ async def book(req, resp, *, id):
     resp.obj = session.query(Book).filter_by(id=id).first()
 
 
-@api.route("/update-price/{id}", methods=["PATCH"])
+@app.route("/update-price/{id}", methods=["PATCH"])
 @webhook
 @authenticate(basic_auth, role="user")
 @input(PriceUpdateSchema)
@@ -181,7 +183,7 @@ async def update_book_price(req, resp, id, *, data):
     resp.obj = book
 
 
-@api.route("/all", methods=["GET"])
+@app.route("/all", methods=["GET"])
 @authenticate(basic_auth)
 @output(BookSchema)
 async def all_books(req, resp):
@@ -191,4 +193,4 @@ async def all_books(req, resp):
 
 
 if __name__ == "__main__":
-    api.run()
+    app.run()

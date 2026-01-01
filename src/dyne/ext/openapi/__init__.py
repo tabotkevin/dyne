@@ -7,26 +7,44 @@ from apispec.ext.marshmallow import MarshmallowPlugin
 
 from dyne import status
 from dyne.ext.auth.backends import BasicAuth, DigestAuth, TokenAuth
-from dyne.statics import DEFAULT_OPENAPI_THEME, OPENAPI_THEMES
 from dyne.templates import Templates
 
+_THEMES = ["elements", "rapidoc", "redoc", "swaggerui"]
+_DEFAULT_THEME = "elements"
 
-class Schema:
+
+class OpenAPI:
+    """The primary web-service class.
+
+    :param title: The name of the API, displayed in the documentation UI.
+    :param version: The current version of your API (e.g., "1.0").
+    :param plugins: A list of extensions to be registered and initialized with the app.
+    :param description: A short summary describing the purpose and usage of the API.
+    :param terms_of_service: A URL pointing to the legal terms for using the API.
+    :param contact: A dictionary or string containing contact info (email, name, URL).
+    :param license: A dictionary or string containing license info (e.g., MIT, Apache 2.0).
+    :param openapi: The version of the OpenAPI specification to use (default "3.0.1").
+    :param openapi_route: The URL path where the raw OpenAPI schema (YAML/JSON) is served.
+    :param docs_route: The URL path where the interactive documentation (Swagger/Redoc) is hosted.
+    :param static_route: The URL prefix used for serving static assets and files.
+    :param theme: OpenAPI documentation theme, must be one of ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
+    """
+
     def __init__(
         self,
         app,
-        title,
-        version,
+        title="Documentation",
+        version="1.0",
         plugins=None,
         description=None,
         terms_of_service=None,
         contact=None,
         license=None,
-        openapi=None,
+        openapi="3.0.1",
         openapi_route="/schema.yml",
-        docs_route="/docs/",
+        docs_route="/docs",
         static_route="/static",
-        openapi_theme=DEFAULT_OPENAPI_THEME,
+        theme=_DEFAULT_THEME,
     ):
         self.app = app
         self.schemas = {}
@@ -40,9 +58,7 @@ class Schema:
         self.openapi_version = openapi
         self.openapi_route = openapi_route
 
-        self.docs_theme = (
-            openapi_theme if openapi_theme in OPENAPI_THEMES else DEFAULT_OPENAPI_THEME
-        )
+        self.docs_theme = theme if theme in _THEMES else _DEFAULT_THEME
         self.docs_route = docs_route
 
         self.ma_plugin = MarshmallowPlugin()
@@ -356,8 +372,6 @@ class Schema:
         """Decorator for creating new routes around function and class definitions.
 
         Usage::
-
-            from marshmallow import Schema, fields
 
             @api.schema("Pet")
             class PetSchema(Schema):

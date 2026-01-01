@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 import dyne
 from dyne.ext.io.marshmallow import input, output
 
-api = dyne.API()
+app = dyne.App()
 
 
 class Base(DeclarativeBase):
@@ -44,7 +44,7 @@ class BookSchema(Schema):
     title = fields.Str()
 
 
-@api.route("/create", methods=["POST"])
+@app.route("/create", methods=["POST"])
 @input(BookSchema)
 @output(BookSchema)
 async def create(req, resp, *, data):
@@ -57,7 +57,7 @@ async def create(req, resp, *, data):
     resp.obj = book
 
 
-@api.route("/all", methods=["POST"])
+@app.route("/all", methods=["POST"])
 @output(BookSchema)
 async def all_books(req, resp):
     """Get all books"""
@@ -65,9 +65,9 @@ async def all_books(req, resp):
     resp.obj = session.query(Book)
 
 
-r = api.client.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
+r = app.client.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
 print(r.json())
 
-r = api.client.post("http://;/all")
+r = app.client.post("http://;/all")
 print(r.json())
 os.remove("db")

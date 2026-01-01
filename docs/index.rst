@@ -31,10 +31,11 @@ A light weight Python async framework with batteries included.
     from dyne.ext.auth.backends import BasicAuth
     from dyne.ext.io.pydantic import input, output, expect
     from dyne.ext.io.pydantic.fields import FileField
+    from dyne.ext.openapi import OpenAPI
 
-    api = dyne.API()
+    app = dyne.App()
+    api = OpenAPI(app, description=description)
     basic_auth = BasicAuth()
-
 
     
     class Book(Base): # An SQLAlchemy model
@@ -67,7 +68,7 @@ A light weight Python async framework with batteries included.
             arbitrary_types_allowed=True
         )
 
-    @api.route("/book", methods=["POST"])
+    @app.route("/book", methods=["POST"])
     @authenticate(basic_auth, role="admin")
     @input(BookCreateSchema, location="form")
     @output(BookSchema, status_code=201)
@@ -101,7 +102,7 @@ automatic gzip compression.
 Features
 --------
 
-- A pleasant API, with a single import statement.
+- A pleasant App, with a single import statement.
 - Class-based views without inheritance.
 - `ASGI <https://asgi.readthedocs.io>`_ framework, the future of Python web services.
 - WebSocket support!
@@ -123,7 +124,7 @@ User Guides
    tour
    deployment
    testing
-   api
+   app
    maintainers
 
 

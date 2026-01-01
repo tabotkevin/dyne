@@ -57,61 +57,61 @@ async def get_user_roles(user):
 
 
 # Basic Auth tests
-def test_basic_auth(api):
+def test_basic_auth(app):
 
-    @api.route("/{greeting}")
+    @app.route("/{greeting}")
     @authenticate(basic_auth)
     async def basic_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
     # Test success
-    response = api.client.get("http://;/Hello", auth=("john", "password"))
-    assert response.status_code == api.status.HTTP_200_OK
+    response = app.client.get("http://;/Hello", auth=("john", "password"))
+    assert response.status_code == app.status.HTTP_200_OK
     assert response.text == "Hello, john!"
 
     # Test failure
-    response = api.client.get("http://;/Hello", auth=("john", "wrong_password"))
+    response = app.client.get("http://;/Hello", auth=("john", "wrong_password"))
     assert response.status_code == 401
     assert response.text == "Basic Custom Error"
 
 
 # Token Auth tests
-def test_token_auth(api):
+def test_token_auth(app):
 
-    @api.route("/{greeting}")
+    @app.route("/{greeting}")
     @authenticate(token_auth)
     async def token_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
     # Test success
     headers = {"Authorization": "Bearer valid_token"}
-    response = api.client.get("http://;/Hi", headers=headers)
+    response = app.client.get("http://;/Hi", headers=headers)
     assert response.status_code == 200
     assert response.text == "Hi, admin!"
 
     # Test failure
     headers = {"Authorization": "Bearer invalid_token"}
-    response = api.client.get("http://;/Hi", headers=headers)
+    response = app.client.get("http://;/Hi", headers=headers)
     assert response.status_code == 401
     assert response.text == "Token Custom Error"
 
 
 # Digest Auth tests
-def test_digest_auth(api):
-    @api.route("/{greeting}")
+def test_digest_auth(app):
+    @app.route("/{greeting}")
     @authenticate(digest_auth)
     async def digest_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
     # Test success
-    response = api.client.get(
+    response = app.client.get(
         "http://;/Hola", auth=httpx.DigestAuth("john", "password")
     )
     assert response.status_code == 200
     assert response.text == "Hola, john!"
 
     # Test failure
-    response = api.client.get(
+    response = app.client.get(
         "http://;/Hola", auth=httpx.DigestAuth("john", "wrong_password")
     )
     assert response.status_code == 401
@@ -119,52 +119,52 @@ def test_digest_auth(api):
 
 
 # Role-based authorization tests
-def test_role_user(api):
-    @api.route("/welcome")
+def test_role_user(app):
+    @app.route("/welcome")
     @authenticate(basic_auth, role="user")
     async def welcome(req, resp):
         resp.text = f"welcome back {req.state.user}!"
 
-    @api.route("/admin")
+    @app.route("/admin")
     @authenticate(basic_auth, role="admin")
     async def admin(req, resp):
         resp.text = f"Hello {req.state.user}, you are an admin!"
 
     # Test success
-    response = api.client.get("http://;/welcome", auth=("john", "password"))
+    response = app.client.get("http://;/welcome", auth=("john", "password"))
     assert response.status_code == 200
     assert response.text == "welcome back john!"
 
     # Test user role failure
-    response = api.client.get("http://;/admin", auth=("john", "password"))
+    response = app.client.get("http://;/admin", auth=("john", "password"))
     assert response.status_code == 403  # Forbidden because john is not an admin
 
     # Test admin role success
-    response = api.client.get("http://;/admin", auth=("admin", "password123"))
+    response = app.client.get("http://;/admin", auth=("admin", "password123"))
     assert response.status_code == 200
     assert response.text == "Hello admin, you are an admin!"
 
 
 # MultiAuth tests
-def test_multi_auth_basic_success(api):
-    @api.route("/multi/{greeting}")
+def test_multi_auth_basic_success(app):
+    @app.route("/multi/{greeting}")
     @authenticate(multi_auth)
     async def multi_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
     # Test Basic Auth success
-    response = api.client.get("http://;/multi/Hi", auth=("john", "password"))
+    response = app.client.get("http://;/multi/Hi", auth=("john", "password"))
     assert response.status_code == 200
     assert response.text == "Hi, john!"
 
     # Test Token Auth success
     headers = {"Authorization": "Bearer valid_token"}
-    response = api.client.get("http://;/multi/Hi", headers=headers)
+    response = app.client.get("http://;/multi/Hi", headers=headers)
     assert response.status_code == 200
     assert response.text == "Hi, admin!"
 
     # Test Digest success
-    response = api.client.get(
+    response = app.client.get(
         "http://;/multi/Hi", auth=httpx.DigestAuth("john", "password")
     )
     assert response.status_code == 200

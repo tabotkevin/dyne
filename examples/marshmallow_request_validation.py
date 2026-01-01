@@ -5,7 +5,7 @@ from marshmallow import Schema, fields
 import dyne
 from dyne.ext.io.marshmallow import input, webhook
 
-api = dyne.API()
+app = dyne.App()
 
 
 class BookSchema(Schema):
@@ -31,10 +31,10 @@ class QuerySchema(Schema):
 
 
 # Media (JSON body)
-@api.route("/book", methods=["POST"])
+@app.route("/book", methods=["POST"])
 @input(BookSchema)
 async def create_book(req, resp, *, data):
-    @api.background.task
+    @app.background.task
     def process(book):
         time.sleep(2)
         print(book)
@@ -44,7 +44,7 @@ async def create_book(req, resp, *, data):
 
 
 # Query parameters
-@api.route("/books")
+@app.route("/books")
 @input(QuerySchema, location="query")
 async def list_books(req, resp, *, query):
     print(query)
@@ -52,7 +52,7 @@ async def list_books(req, resp, *, query):
 
 
 # Headers
-@api.route("/book/{id}", methods=["POST"])
+@app.route("/book/{id}", methods=["POST"])
 @input(HeaderSchema, location="header")
 async def book_version(req, resp, *, id, header):
     print(header)
@@ -60,7 +60,7 @@ async def book_version(req, resp, *, id, header):
 
 
 # Cookies
-@api.route("/")
+@app.route("/")
 @input(CookiesSchema, location="cookie")
 async def home(req, resp, *, cookie):
     print(cookie)
@@ -68,11 +68,11 @@ async def home(req, resp, *, cookie):
 
 
 # With webhook annotation.
-@api.route("/transaction", methods=["POST"])
+@app.route("/transaction", methods=["POST"])
 @webhook(name="transaction")
 @input(BookSchema)
 async def purchases(req, resp, *, data):
-    @api.background.task
+    @app.background.task
     def process(book):
         time.sleep(2)
         print(book)
@@ -82,7 +82,7 @@ async def purchases(req, resp, *, data):
 
 
 # Stacked inputs (cookies + body)
-@api.route("/store", methods=["POST"])
+@app.route("/store", methods=["POST"])
 @input(CookiesSchema, location="cookie", key="cookies")
 @input(BookSchema)
 async def store(req, resp, *, cookies, data):
@@ -93,29 +93,29 @@ async def store(req, resp, *, cookies, data):
 # # Let's make an HTTP request to the server, to test it out.'}
 
 # Media requests
-r = api.client.post(
+r = app.client.post(
     "http://;/book", json={"price": 39.99, "title": "Pragmatic Programmer"}
 )
 print(r.json())
 
 
 # Query(params) requests
-r = api.client.get("http://;/books?page=2&limit=20")
+r = app.client.get("http://;/books?page=2&limit=20")
 print(r.json())
 
 
 # Headers requests
-r = api.client.post("http://;/book/1", headers={"X-Version": "2.4.5"})
+r = app.client.post("http://;/book/1", headers={"X-Version": "2.4.5"})
 print(r.json())
 
 
 # Cookies requests
-r = api.client.get("http://;/", cookies={"max_age": "123", "is_cheap": "True"})
+r = app.client.get("http://;/", cookies={"max_age": "123", "is_cheap": "True"})
 print(r.text)
 
 
 # Stacking inputs
-r = api.client.post(
+r = app.client.post(
     "http://;/store",
     json={"price": 39.99, "title": "Pragmatic Programmer"},
     cookies={"max_age": "123", "is_cheap": "True"},
