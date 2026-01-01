@@ -15,7 +15,7 @@ Dyne brings simplicity and elegance to API development, offering built-in featur
 
 Here's how you can get started:
 
-::
+.. code-block:: python
     
     import dyne
     from dyne.ext.auth.backends import BasicAuth
@@ -46,7 +46,7 @@ Here's how you can get started:
         return roles.get(user)
 
 Example: Book Creation API
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This example demonstrates a clean and minimal API endpoint for creating a new book. The API supports file uploads with built-in validation for file extensions and file sizes.
 
@@ -150,7 +150,9 @@ The view is added to a Dyne App route (for example, ``/graphql``). The endpoint 
 When accessed from a browser, the endpoint will render a GraphiQL interface, allowing you to easily explore and interact with your GraphQL schema.
 
 
-**Installation**
+Installation
+^^^^^^^^^^^^
+
 Dyne’s GraphQL support is provided via optional dependencies.
 Install Dyne along with the backend you intend to use.
 
@@ -168,7 +170,8 @@ Install Dyne along with the backend you intend to use.
 Only install the backend(s) you plan to use. Dyne does not auto-detect GraphQL backends.
 
 
-**Choosing a GraphQL Backend**
+Choosing a GraphQL Backend
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Dyne does not auto-detect which GraphQL backend you are using.
 
@@ -189,7 +192,7 @@ This explicit import ensures:
    :depth: 1
 
 1. Strawberry GraphQL
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 The following example demonstrates how to set up a ``Strawberry`` schema and route it through Dyne’s ``GraphQLView``:
 
@@ -234,7 +237,7 @@ You can make use of Dyne’s `Request` and `Response` objects in your GraphQL re
 This allows you to access and manipulate request/response data within your GraphQL operations.
 
 2. Graphene GraphQL
----------------------
+^^^^^^^^^^^^^^^^^^^
 
 The following example demonstrates how to set up a **Graphene** schema and route it through Dyne’s `GraphQLView`:
 
@@ -281,7 +284,7 @@ Just like with **Strawberry**, Dyne’s `Request` and `Response` objects can be 
 
 
 Important Notes
----------------
+^^^^^^^^^^^^^^^
 
 * Do not pass raw `strawberry.Schema`` or `graphene.Schema` instances directly to `GraphQLView`.
 * Always use the Schema class provided by Dyne for the backend you choose.
@@ -290,13 +293,13 @@ Important Notes
 
 
 GraphQL Queries and Mutations
----------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Once your App is set up with either **Strawberry** or **Graphene**, you can interact with it by making queries and mutations via the `/graphql` route.
+Once your App is set up with either ``Strawberry`` or ``Graphene``, you can interact with it by making queries and mutations via the `/graphql` route.
 
 Here are some example GraphQL queries and mutations you can use:
 
-**Example Query 1: Fetch a default hello message**
+**Example Query 1**: Fetch a default hello message
 
 .. code-block:: graphql
 
@@ -304,7 +307,7 @@ Here are some example GraphQL queries and mutations you can use:
       hello
     }
 
-**Expected Response:**
+**Expected Response**:
 
 .. code-block:: json
 
@@ -315,7 +318,7 @@ Here are some example GraphQL queries and mutations you can use:
     }
 
 
-**Example Query 2: Fetch a personalized hello message**
+**Example Query 2**: Fetch a personalized hello message
 
 .. code-block:: graphql
 
@@ -323,7 +326,7 @@ Here are some example GraphQL queries and mutations you can use:
       hello(name: "Alice")
     }
 
-**Expected Response:**
+**Expected Response**:
 
 .. code-block:: json
 
@@ -334,7 +337,7 @@ Here are some example GraphQL queries and mutations you can use:
     }
 
 
-**Example Mutation: Create a message**
+**Example Mutation**: Create a message
 
 .. code-block:: graphql
 
@@ -345,7 +348,7 @@ Here are some example GraphQL queries and mutations you can use:
       }
     }
 
-**Expected Response:**
+**Expected Response**:
 
 .. code-block:: json
 
@@ -362,7 +365,7 @@ Here are some example GraphQL queries and mutations you can use:
 For more advanced configurations or additional examples, refer to the respective documentation for **Strawberry** and **Graphene**.
 
 
-Request validation
+Request Validation
 ------------------
 
 Dyne provides specialized extensions for validating incoming requests against **Pydantic** models or **Marshmallow** schemas. Instead of a generic decorator, you import the ``input`` decorator specifically for the library you are using.
@@ -375,15 +378,15 @@ Validation is supported for various sources:
 * **cookie**: Browser cookies.
 
 Data Injection
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Once validated, the data is injected into your handler as a keyword argument. 
 * By default, the argument name is the value of the ``location`` (e.g., ``query``, ``header``).
 * For ``media``, the default argument name is ``data``.
 * You can override this using the ``key`` parameter.
 
-Pydantic Validation
-~~~~~~~~~~~~~~~~~~~
+1. Pydantic validation
+^^^^^^^^^^^^^^^^^^^^^^
 
 To use Pydantic, import the decorator from `dyne.ext.io.pydantic`.
 
@@ -406,8 +409,8 @@ To use Pydantic, import the decorator from `dyne.ext.io.pydantic`.
       print(f"Creating {data['title']}")
       resp.media = {"status": "created"}
 
-Marshmallow Validation
-~~~~~~~~~~~~~~~~~~~~~~
+2. Marshmallow Validation
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To use Marshmallow, import the decorator from ``dyne.ext.io.marshmallow``.
 
@@ -431,7 +434,7 @@ To use Marshmallow, import the decorator from ``dyne.ext.io.marshmallow``.
         resp.media = {"results": [], "page": page}
 
 Advanced Locations and Keys
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can validate multiple sources on a single endpoint and customize the variable names injected into the function.
 
@@ -449,17 +452,6 @@ You can validate multiple sources on a single endpoint and customize the variabl
       print(f"Query: {params}")
       resp.media = {"data": "secret stuff"}
 
-Key Differences
-~~~~~~~~~~~~~~~
-
-+-----------------+-----------------------------------+-----------------------------------------+
-| Feature         | Pydantic                          | Marshmallow                             |
-+=================+===================================+=========================================+
-| **Import**      | ``dyne.ext.io.pydantic.input``    | ``dyne.ext.io.marshmallow.input``       |
-+-----------------+-----------------------------------+-----------------------------------------+
-| **Return Type** | A native Python dictionary.       | A native Python dictionary.             | 
-+-----------------+-----------------------------------+-----------------------------------------+
-
 
 Response Serialization
 ----------------------
@@ -472,8 +464,8 @@ The ``@output`` decorator supports:
 * **header**: A schema to validate and document response headers.
 * **description**: A string used for OpenAPI documentation to describe the response.
 
-Pydantic Output
-~~~~~~~~~~~~~~~
+1. Pydantic Output
+^^^^^^^^^^^^^^^^^^
 
 To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``. 
 
@@ -518,8 +510,8 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
         # resp.obj can also be a list or a query object
         resp.obj = session.query(Book).all()
 
-Marshmallow Output
-~~~~~~~~~~~~~~~~~~
+2. Marshmallow Output
+^^^^^^^^^^^^^^^^^^^^^
 
 To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmallow``.
 
@@ -598,8 +590,8 @@ Use this format for simple errors when the status code and a message are suffici
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Use this form when the response includes a **JSON body**, but the description can be inferred or is not necessary (e.g., "Unauthorized" for 401).
 
-Sample Error Schemas
-~~~~~~~~~~~~~~~~~~~~~
+Example:
+^^^^^^^^
 
 To provide structured error responses in your documentation, define your error schemss using Pydantic or Marshmallow:
 
@@ -680,29 +672,29 @@ The decorator is flexible and supports two calling conventions:
 * Marshmallow: ``dyne.ext.io.marshmallow``.
 
 1. Basic Usage (Implicit Naming)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When used without parentheses, the webhook uses the function name as its default identifier.
 
 .. code-block:: python
 
-@app.route("/events", methods=["POST"])
-@webhook
-async def handle_event(req, resp):
-    pass
+    @app.route("/events", methods=["POST"])
+    @webhook
+    async def handle_event(req, resp):
+        pass
 
 
 2. Explicit Naming
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 You can provide a specific name for the webhook using the `name` argument. This is useful when the external service requires a specific endpoint identifier that differs from your function name.
 
 .. code-block:: python
 
-@app.route("/transaction", methods=["POST"])
-@webhook(name="transaction_callback")
-async def process_payment(req, resp):
-    pass
+    @app.route("/transaction", methods=["POST"])
+    @webhook(name="transaction_callback")
+    async def process_payment(req, resp):
+        pass
 
 
 * **Note:** A function decorated with ``@webhook`` automatically inherits the HTTP method defined in the ``@app.route`` decorator. For example, if your route is configured for ``POST``, the webhook documentation will reflect that it expects a ``POST`` request from the external caller.
@@ -729,8 +721,8 @@ Example
         resp.media = {"status": "Received!"}
 
 
-Unified Example: ``@input``, ``@output``, ``@expect`` and ``@webhook``
-----------------------------------------------------------------------
+Grouping Request & Response Decorators
+--------------------------------------
 
 In a production endpoint, you will typically use all three decorators together to create a fully validated and documented API using the OpenAPI extension.
 
@@ -764,8 +756,8 @@ In a production endpoint, you will typically use all three decorators together t
       resp.obj = book
 
 
-Summary of Decorators
-~~~~~~~~~~~~~~~~~~~~~
+Summary:
+^^^^^^^^
 
 +-----------------+------------------------------------------+----------------------------------------------+
 | Decorator       | Primary Purpose                          | Core Mechanism                               |
@@ -780,6 +772,7 @@ Summary of Decorators
 +-----------------+------------------------------------------+----------------------------------------------+
 
 
+
 Authentication
 ______________
 
@@ -788,7 +781,7 @@ Dyne provides a robust authentication system through its ``auth`` extension. By 
 All authentication backends are located in ``dyne.ext.auth.backends``, while the protection decorator is in ``dyne.ext.auth``.
 
 The User Object
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 In the ``verify_password``, ``verify_token``, or ``get_password`` callbacks, you can return any object (e.g., a database model, a dictionary, or a string) that represents your user.
 
@@ -799,8 +792,8 @@ Once authenticated, this object is automatically attached to the request and can
   username = req.state.user
 
 
-Basic Authentication
-~~~~~~~~~~~~~~~~~~~~
+1. Basic Authentication
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ``BasicAuth`` verifies a username and password sent via the standard HTTP Basic Auth header.
 
@@ -827,15 +820,15 @@ Basic Authentication
         resp.text = f"Hello, {req.state.user}!"
 
 
-**Request Example:**
+**Sample request**:
 
 .. code-block:: bash
 
     http -a john:password GET http://localhost:5042/greet
 
 
-Token Authentication
-~~~~~~~~~~~~~~~~~~~~
+2. Token Authentication
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ``TokenAuth`` is used for Bearer token strategies (like JWTs or API Keys).
 
@@ -858,15 +851,15 @@ Token Authentication
         resp.media = {"data": "Top Secret", "username": req.state.user}
 
 
-**Request Example:**
+**Sample request**:
 
 .. code-block:: bash
 
     http GET http://localhost:5042/dashboard "Authorization: Bearer secret_key_123"
 
 
-Digest Authentication
-~~~~~~~~~~~~~~~~~~~~~
+3. Digest Authentication
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``DigestAuth`` provides a more secure alternative to Basic Auth by using a challenge-response mechanism that never sends the password in plaintext.
 
@@ -894,12 +887,12 @@ Digest Authentication
 
 
 Advanced Digest Authentication
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For production environments, ``DigestAuth`` offers additional hooks to increase security and customize the challenge-response lifecycle.
 
-Using Precomputed Hashes
-~~~~~~~~~~~~~~~~~~~~~~~~
+**Using Precomputed Hashes**
+
 
 Storing plaintext passwords in a database is a security risk. You can instead store precomputed **HA1** hashes. 
 
@@ -921,7 +914,7 @@ Storing plaintext passwords in a database is a security risk. You can instead st
         return hashlib.md5(f"{username}:{realm}:{password}".encode("utf-8")).hexdigest()
 
 Custom Nonce and Opaque Management
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To support stateless horizontally-scaled environments or to implement custom expiration logic, you can override the generation and verification of `nonce` and `opaque` values.
 
@@ -950,7 +943,7 @@ To support stateless horizontally-scaled environments or to implement custom exp
 
 
 Custom Error Handling
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 Every backend allows you to override the default error message and status_code by providing an ``error_handler``.
 
@@ -962,8 +955,8 @@ Every backend allows you to override the default error message and status_code b
         resp.media = {"error": "Custom Authentication Failed"}
 
 
-Multi-Backend Authentication
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4. Multi-Backend Authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``MultiAuth`` backend allows you to support multiple authentication methods on a single route. Dyne will attempt to authenticate the request using each backend in the order they are provided.
 
@@ -979,7 +972,7 @@ The ``MultiAuth`` backend allows you to support multiple authentication methods 
     async def multi_greet(req, resp, *, greeting):
         resp.text = f"{greeting}, {req.state.user}!"
 
-**Request Example:**
+**Sample request**:
 
 You can now access this route using either a Bearer token, a Basic username/password **OR** a Digest username/password.
 
@@ -996,13 +989,12 @@ You can now access this route using either a Bearer token, a Basic username/pass
 
 
 Role-Based Authorization (RBAC)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Authorization happens after authentication. You can restrict routes to specific roles by implementing the `get_user_roles` callback on any backend.
 
-How it Works
+How it Works:
 
-```
 
 1. **Authentication:** The backend verifies the credentials and returns a ``user`` object.
 2. **Role Retrieval:** Dyne calls your ``get_user_roles(user)`` function.
@@ -1041,7 +1033,7 @@ Sample code using the ``basic_auth`` backends:
         resp.text = "Sensitive administrative settings."
 
 Accessing Protected Routes
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When using RBAC, the client sends credentials normally. The server handles the permission check internally.
 
@@ -1058,20 +1050,19 @@ OpenAPI Documentation
 ---------------------
 
 Dyne utilizes a plugin-based architecture for API documentation, decoupling the documentation engine from the core ``:class:App`` to ensure the framework remains lightweight. 
-By integrating the OpenAPI plugin from ``dyne.ext.openapi``, the system automatically generates a compliant OpenAPI 3.0.x specification by inspecting the metadata left 
-behind by extension decorators—such as those from ``dyne.ext.io`` or ``dyne.ext.auth``. Consequently, you are never just validating requests, serializing responses, 
-or enforcing authentication; you are simultaneously building your API's documentation in real-time.
+
+By integrating the OpenAPI plugin from ``dyne.ext.openapi``, the system automatically generates a compliant OpenAPI 3.0.x specification by inspecting the metadata left behind by extension decorators—such as those from ``dyne.ext.io`` or ``dyne.ext.auth``. Consequently, you are never just validating requests, serializing responses, or enforcing authentication; you are simultaneously building your API's documentation in real-time.
 
 It is important to understand that decorators like ``@input``, ``@output`` and ``@authenticate`` are designed to work independently of the documentation system:
 
-1.  **At Runtime:** These decorators manage the essential logic of the request-response cycle. They perform the critical tasks of **validating incoming request data** and **serializing outgoing responses** using your preferred strategy (Pydantic or Marshmallow). Furthermore, they manage the security layer of your application by providing robust **Authentication** (supporting Basic, Token, and Digest schemes) and fine-grained **Authorization** for your endpoints.
+1.  **At Runtime:** These decorators manage the essential logic of the request-response cycle. They perform the critical tasks of ``validating incoming request data`` and ``serializing outgoing responses`` using your preferred strategy (Pydantic or Marshmallow). Furthermore, they manage the security layer of your application by providing robust ``Authentication`` (supporting Basic, Token, and Digest authentication) and fine-grained ``Authorization`` for your endpoints.
 2.  **For Documentation:** When combined with the ``OpenAPI`` extension, these same decorators serve as metadata providers. The extension introspects the schemas and security requirements defined by these decorators to automatically populate the paths, components, and security schemes in your ``schema.yml``.
 
 **The Power of Synergy:** By using these decorators, you eliminate the need to maintain a separate documentation file. Your code becomes the single source of truth for both application logic and the API contract.
 
 
 Configuring the API Metadata
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To provide a title and description for your API, assign a docstring or a configuration object to your API instance. This information appears at the very top of your generated documentation.
 
@@ -1101,10 +1092,10 @@ To provide a title and description for your API, assign a docstring or a configu
   - contact
   - license
   - openapi e.g "3.0.1",
-  - theme e.g ``elements``, ``rapidoc``, ``redoc``, ``swaggerui``
+  - theme e.g "elements", "rapidoc", "redoc", "swaggerui"
 
 The Documentation Decorators
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The documentation engine gathers data from five primary sources:
 
@@ -1115,7 +1106,7 @@ The documentation engine gathers data from five primary sources:
 * **@webhook**: Documents endpoints as webhooks.
 
 Full Example: Creating a Book with File Upload
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This example demonstrates how the Marshmallow strategy captures a complex schema—including a file upload—and represents it in the OpenAPI spec as `multipart/form-data`.
 
@@ -1179,7 +1170,7 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
 
 
 Viewing the Documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Once you have initialized the `OpenAPI` plugin and your routes are decorated, the documentation is automatically served by your application. 
 By default, there are two primary endpoints available.
@@ -1307,7 +1298,7 @@ There are two primary types of state available:
 2. **Request State**: Ephemeral data that lives only for the duration of a single HTTP request.
 
 Global Application State
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 To store variables that should be accessible globally (such as database connection pools, 
 configuration settings, or shared caches), use the ``app.state`` attribute.
@@ -1320,7 +1311,7 @@ this state is designed to be:
 - Easy to test
 
 Initialization  State (Startup)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The best place to initialize application state is within a ``startup`` event handler:
 
@@ -1334,7 +1325,7 @@ The best place to initialize application state is within a ``startup`` event han
 This ensures resources are created once and reused across requests.
 
 Accessing State in Endpoints
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Inside your route handlers, you can access the application state through the 
 ``req.app.state`` attribute:
@@ -1347,7 +1338,7 @@ Inside your route handlers, you can access the application state through the
         resp.media = {"contact": email}
 
 Cleaning Up State (Shutdown)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Long-lived resources should be properly closed during application shutdown.
 
@@ -1358,7 +1349,7 @@ Long-lived resources should be properly closed during application shutdown.
         await app.state.db.close()
 
 State vs. Request State
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 It is important to distinguish between ``req.app.state`` and ``req.state``.
 
@@ -1379,7 +1370,6 @@ It is important to distinguish between ``req.app.state`` and ``req.state``.
    If you try to access a state attribute that has not been set, it will raise 
    an ``AttributeError``. Use ``getattr(req.app.state, "key", default)`` if 
    you are unsure if a value exists.
-
 
 
 Using Requests Test Client

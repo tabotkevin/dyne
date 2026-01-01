@@ -4,7 +4,6 @@ import re
 import traceback
 from collections import defaultdict
 
-from a2wsgi import WSGIMiddleware
 from starlette.concurrency import run_in_threadpool
 from starlette.websockets import WebSocket, WebSocketClose
 
@@ -264,7 +263,7 @@ class Router:
         self.routes.append(route)
 
     def mount(self, route, app):
-        """Mounts ASGI / WSGI applications at a given route"""
+        """Mounts ASGI  applications at a given route"""
         self.apps.update(route, app)
 
     def add_event_handler(self, event_type, handler):
@@ -355,8 +354,6 @@ class Router:
                     await app(scope, receive, send)
                     return
                 except TypeError:
-                    app = WSGIMiddleware(app)
-                    await app(scope, receive, send)
                     return
 
         await self.default_endpoint(scope, receive, send)
