@@ -36,19 +36,6 @@ def url():
 
 
 @pytest.fixture
-def flask():
-    from flask import Flask
-
-    flask_app = Flask(__name__)
-
-    @flask_app.route("/")
-    def hello():
-        return "Hello World!"
-
-    return flask_app
-
-
-@pytest.fixture
 def schema():
     class Query(graphene.ObjectType):
         hello = graphene.String(name=graphene.String(default_value="stranger"))

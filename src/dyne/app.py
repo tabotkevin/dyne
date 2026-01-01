@@ -245,10 +245,10 @@ class App:
         return decorator
 
     def mount(self, route, app):
-        """Mounts an WSGI / ASGI application at a given route.
+        """Mounts an ASGI application at a given route.
 
         :param route: String representation of the route to be used (shouldn't be parameterized).
-        :param app: The other WSGI / ASGI app.
+        :param app: The other ASGI app.
         """
         self.router.apps.update({route: app})
 

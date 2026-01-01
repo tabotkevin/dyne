@@ -1192,25 +1192,6 @@ This documentation is always in sync with your code. If you add a field to your 
 > **Note:** Without the ``OpenAPI`` extension initialized, these decorators still protect your routes via validation, but no ``/docs`` or ``/schema.yml`` will be generated.
 
 
-Mount a WSGI / ASGI Apps (e.g. Flask, Starlette,...)
-----------------------------------------------------
-
-dyne gives you the ability to mount another ASGI / WSGI app at a subroute::
-
-    import dyne
-    from flask import Flask
-
-    app = dyne.App()
-    flask = Flask(__name__)
-
-    @flask.route('/')
-    def hello():
-        return 'hello'
-
-    app.mount('/flask', flask)
-
-That's it!
-
 Single-Page Web Apps
 --------------------
 
