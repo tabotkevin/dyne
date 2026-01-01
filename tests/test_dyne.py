@@ -444,17 +444,6 @@ def test_documentation():
     assert "html" in r.text
 
 
-def test_mount_wsgi_app(app, flask):
-    @app.route("/")
-    def hello(req, resp):
-        resp.text = "hello"
-
-    app.mount("/flask", flask)
-
-    r = app.client.get("http://;/flask")
-    assert r.status_code == 200
-
-
 def test_async_class_based_views(app):
     @app.route("/")
     class Resource:

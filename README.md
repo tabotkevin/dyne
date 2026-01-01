@@ -14,7 +14,7 @@ from dyne.ext.auth import authenticate
 from dyne.ext.io.pydantic import input, output, expect
 from dyne.ext.openapi import OpenAPI
 
-api = dyne.API()
+app = dyne.App()
 api = OpenAPI(app, description=description)
 
 

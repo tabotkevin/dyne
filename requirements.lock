@@ -23,8 +23,6 @@ apispec==6.9.0
     # via dyne
 backports-datetime-fromisoformat==2.0.3
     # via marshmallow
-blinker==1.9.0
-    # via flask
 certifi==2025.11.12
     # via requests
 chardet==5.2.0
@@ -32,14 +30,11 @@ chardet==5.2.0
 charset-normalizer==3.4.4
     # via requests
 click==8.1.7
-    # via flask
     # via uvicorn
 docopt==0.6.2
     # via dyne
 exceptiongroup==1.3.1
     # via anyio
-flask==3.0.3
-    # via dyne
 graphene==3.4.3
     # via dyne
 graphql-core==3.2.7
@@ -60,15 +55,12 @@ idna==3.6
     # via requests
 itsdangerous==2.1.2
     # via dyne
-    # via flask
 jinja2==3.1.3
     # via dyne
-    # via flask
 lia-web==0.2.3
     # via strawberry-graphql
 markupsafe==2.1.5
     # via jinja2
-    # via werkzeug
 marshmallow==4.1.1
     # via dyne
 packaging==25.0
@@ -127,7 +119,5 @@ watchfiles==0.21.0
     # via uvicorn
 websockets==12.0
     # via uvicorn
-werkzeug==3.1.4
-    # via flask
 whitenoise==6.6.0
     # via dyne
