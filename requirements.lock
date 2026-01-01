@@ -10,8 +10,6 @@
 #   universal: false
 
 -e file:.
-a2wsgi==1.10.7
-    # via dyne
 aiofiles==23.2.1
     # via dyne
 annotated-types==0.7.0
@@ -96,7 +94,6 @@ starlette==0.37.2
 strawberry-graphql==0.287.3
     # via dyne
 typing-extensions==4.15.0
-    # via a2wsgi
     # via anyio
     # via exceptiongroup
     # via graphene

@@ -56,7 +56,7 @@ See
 [the documentation's feature tour](https://dyneapi.readthedocs.io/en/latest/tour.html)
 for more details on features available in dyne.
 
-# Installation Guide
+## Installation Guide
 
 ```bash
 pip install dyne
