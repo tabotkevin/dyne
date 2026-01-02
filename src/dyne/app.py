@@ -1,4 +1,5 @@
 import os
+from collections.abc import MutableMapping
 from pathlib import Path
 
 import uvicorn
@@ -11,6 +12,8 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.testclient import TestClient
+
+from dyne.config import Config
 
 from . import status
 from .background import BackgroundQueue
@@ -28,6 +31,10 @@ class App:
     :param templates_dir: The directory to use for templates. Will be created for you if it doesn't already exist.
     :param auto_escape: If ``True``, HTML and XML templates will automatically be escaped.
     :param enable_hsts: If ``True``, send all responses to HTTPS URLs.
+    :param env_file: Path to a config .env file to load.
+    :param env_prefix: Prefix for environment variables (e.g., 'DYNE_').
+    :param encoding: Encoding for the env_file.
+    :param environ: The environment mapping to use (defaults to os.environ).
     """
 
     status = status
@@ -45,6 +52,10 @@ class App:
         cors=False,
         cors_params=DEFAULT_CORS_PARAMS,
         allowed_hosts=None,
+        env_file: str | Path | None = None,
+        env_prefix: str = "",
+        encoding: str = "utf-8",
+        environ: MutableMapping[str, str] = os.environ,
     ):
         self.background = BackgroundQueue()
 
@@ -103,6 +114,9 @@ class App:
         self.client = (
             self.session()
         )  #: A Requests session that is connected to the ASGI app.
+        self.config = Config(
+            env_file=env_file, env_prefix=env_prefix, encoding=encoding, environ=environ
+        )
 
     @property
     def static_app(self):
