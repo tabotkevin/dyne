@@ -554,8 +554,8 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
         resp.obj = session.query(Book).all()
 
 
-API Documentation with ``@expect``
------------------------------------
+Expected Responses
+------------------
 
 The ``@expect`` decorator is a powerful tool for **OpenAPI (Swagger) documentation**. While your primary success response is usually handled by ``@output``, ``@expect`` allows you to document **additional HTTP responses**—such as authentication errors, validation failures, or conflicts—that an endpoint might return.
 
@@ -589,9 +589,6 @@ Use this format for simple errors when the status code and a message are suffici
 2. Schema-Only Responses
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Use this form when the response includes a **JSON body**, but the description can be inferred or is not necessary (e.g., "Unauthorized" for 401).
-
-Example:
-^^^^^^^^
 
 To provide structured error responses in your documentation, define your error schemss using Pydantic or Marshmallow:
 
@@ -643,8 +640,8 @@ To provide structured error responses in your documentation, define your error s
         pass
 
 
-3. Schema + Description Responses (Recommended)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3. Schema + Description Responses
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Use this form when you want **full control** over both the response schema and its description.
 
 .. code-block:: python
@@ -658,8 +655,9 @@ Use this form when you want **full control** over both the response schema and i
         pass
 
 
+
 Webhooks
-_________
+--------
 
 The `@webhook` decorator is used to mark a standard endpoint as a webhook receiver. 
 This attaches metadata to the route, allowing Dyne to identify it in generated documentation (like OpenAPI Callbacks) or for internal routing.
@@ -671,8 +669,8 @@ The decorator is flexible and supports two calling conventions:
 * Pydantic: ``dyne.ext.io.pydantic``.
 * Marshmallow: ``dyne.ext.io.marshmallow``.
 
-1. Basic Usage (Implicit Naming)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1. Implicit Naming
+^^^^^^^^^^^^^^^^^^
 
 When used without parentheses, the webhook uses the function name as its default identifier.
 
@@ -698,9 +696,6 @@ You can provide a specific name for the webhook using the `name` argument. This 
 
 
 * **Note:** A function decorated with ``@webhook`` automatically inherits the HTTP method defined in the ``@app.route`` decorator. For example, if your route is configured for ``POST``, the webhook documentation will reflect that it expects a ``POST`` request from the external caller.
-
-Example
-^^^^^^^
 
 .. code-block:: python
 
@@ -756,8 +751,7 @@ In a production endpoint, you will typically use all three decorators together t
       resp.obj = book
 
 
-Summary:
-^^^^^^^^
+**Summary**:
 
 +-----------------+------------------------------------------+----------------------------------------------+
 | Decorator       | Primary Purpose                          | Core Mechanism                               |
@@ -770,11 +764,12 @@ Summary:
 +-----------------+------------------------------------------+----------------------------------------------+
 | ``@webhook``    | Documentation                            | Adds endpoint as a webhook in OpenAPI spec.  |
 +-----------------+------------------------------------------+----------------------------------------------+
-
+.
 
 
 Authentication
-______________
+----------------
+
 
 Dyne provides a robust authentication system through its ``auth`` extension. By separating the **Backend** logic (how credentials are verified) from the **Decorator** (how the route is protected), Dyne allows for a highly flexible security architecture.
 
@@ -1046,6 +1041,7 @@ When using RBAC, the client sends credentials normally. The server handles the p
     http -a admin_user:password123 GET http://localhost:5042/system-settings
 
 
+
 OpenAPI Documentation
 ---------------------
 
@@ -1286,8 +1282,9 @@ Closing the connection::
     await websocket.close()
 
 
+
 Application and Request State
-_____________________________
+-----------------------------
 
 Dyne provides a way to store arbitrary extra information in the application instance 
 and the request instance using the **State** object.
@@ -1447,3 +1444,87 @@ Note:
 * By default, all hostnames are allowed.
 * Wildcard domains such as ``*.example.com`` are supported.
 * To allow any hostname use ``allowed_hosts=["*"]``.
+
+
+Configuration
+--------------
+
+Dyne features a hybrid configuration system that is "Zero-Config" by default but highly customizable when needed. 
+
+
+Automatic Discovery
+^^^^^^^^^^^^^^^^^^^
+
+Dyne automatically looks for a file named ``.env`` in your current working directory (CWD) upon initialization. If found, these variables are loaded as defaults.
+
+.. code-block:: python
+
+    from dyne import App
+
+    # If a .env exists in your folder, it is loaded automatically!
+    app = App()
+    print(app.config.DATABASE_URL)
+
+Manual Initialization
+^^^^^^^^^^^^^^^^^^^^^
+
+You can override the discovery behavior or add prefixes to your environment lookups.
+
+.. code-block:: python
+
+    app = App(
+        env_file=".env.production", # Use a specific file instead of discovery
+        env_prefix="DYNE_",         # Only look for vars starting with DYNE_
+        encoding="utf-8"            # Specify file encoding
+    )
+
+From Python Objects
+^^^^^^^^^^^^^^^^^^^
+
+You can seed your configuration using a class or module. Only **UPPERCASE** attributes are imported.
+
+.. code-block:: python
+
+    class DevelopmentConfig:
+        PORT = 5042
+        DEBUG = True
+
+    app.config.from_object(DevelopmentConfig)
+
+
+Resolution Hierarchy
+^^^^^^^^^^^^^^^^^^^^
+
+When you access a configuration key, Dyne searches in this specific order to ensure production environments can always override local settings:
+
+1. **OS Environment**: System variables (e.g., set via ``export`` or Docker).
+2. **Internal Store**: Values from the automatically discovered ``.env`` or an explicit ``env_file``.
+3. **Python Objects**: Values seeded via ``app.config.from_object()``.
+4. **Defaults**: The fallback value provided in ``app.config.get(key, default=...)``.
+
+Type Casting
+^^^^^^^^^^^^
+
+Because environment variables are always strings, Dyne provides a casting engine to prevent "stringly-typed" bugs.
+
+.. code-block:: python
+
+    # Automatically converts "true", "1", "yes" to True
+    debug = app.config.get("DEBUG", cast=bool)
+
+    # Converts string "8080" to integer 8080
+    port = app.config.get("PORT", cast=int, default=8000)
+
+Configuration in Routes
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Access your settings anywhere in your application via the ``request.app`` reference.
+
+.. code-block:: python
+
+    @app.route("/status")
+    async def status(req, resp):
+        if req.app.config.DEBUG:
+            resp.media = {"status": "debug-mode", "db": req.app.config.DATABASE_URL}
+        else:
+            resp.media = {"status": "production"}
