@@ -1,13 +1,15 @@
 
-# MAINTAINERS
+MAINTAINERS
+===========
 
 This document lists the official maintainers of the **Dyne** framework and describes their responsibilities, permissions, and expectations.
 
-## Current Maintainers
+Current Maintainers
+-------------------
+
 
 Primary Maintainers
 
-```
 Individuals with full decision-making authority over the project:
 
 - **Tabot Kevin** (Lead Maintainer & Project Creator)
@@ -90,7 +92,3 @@ Contact
 For maintainer-related concerns, email:
 
 **maintainers@dyne.run**
-
-(Placeholder — replace with project domain email when available.)
-
-```

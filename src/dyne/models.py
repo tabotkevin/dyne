@@ -101,17 +101,17 @@ class Request:
         "formats",
         "_headers",
         "_encoding",
-        "api",
+        "app",
         "_content",
         "_data",
         "_cookies",
     ]
 
-    def __init__(self, scope, receive, api=None, formats=None):
+    def __init__(self, scope, receive, app=None, formats=None):
         self._starlette = StarletteRequest(scope, receive)
         self.formats = formats
         self._encoding = None
-        self.api = api or scope.get("app")
+        self.app = app or scope.get("app")
         self._content = None
         self._data = None
 
@@ -177,11 +177,6 @@ class Request:
             return QueryDict(self.url.query)
         except AttributeError:
             return QueryDict({})
-
-    @property
-    def app(self):
-        """Returns the API instance."""
-        return self.api
 
     @property
     def state(self) -> State:
