@@ -4,7 +4,7 @@ Feature Tour
 Introduction
 ------------
 
-Dyne brings simplicity and elegance to API development, offering built-in features such as:
+Dyne brings simplicity and elegance to  Application and API development, offering built-in features such as:
 
 * **Authentication**: Support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
 * **Input Validation**: The `@input` decorator makes validating request bodies easy.
@@ -15,108 +15,78 @@ Dyne brings simplicity and elegance to API development, offering built-in featur
 
 Here's how you can get started:
 
-.. code-block:: python
-    
-    import dyne
-    from dyne.ext.auth.backends import BasicAuth
+
+Installation
+------------
+
+Dyne uses **optional dependencies** (pip extras) to keep the core package lightweight.  
+This allows you to install only the features you need for your specific project.
+
+Core Installation
+^^^^^^^^^^^^^^^^^
+
+To install the minimal ASGI core:
+
+.. code-block:: bash
+
+  pip install dyne
+
+Feature Bundles
+^^^^^^^^^^^^^^^
+
+Choose the bundle that fits your technology stack. Note that for most shells (like Zsh on macOS), you should wrap the package name in quotes to handle the brackets correctly.
+
+1. OpenAPI & Serialization
+""""""""""""""""""""""""""
+
+Enable automated OpenAPI (Swagger) documentation, request validation and response serialization using your preferred schema library:
+
+* **Pydantic Support:**
+  
+.. code-block:: bash
+  
+  pip install "dyne[openapi_pydantic]"
+
+* **Marshmallow Support:**
+  
+.. code-block:: bash
+  
+  pip install "dyne[openapi_marshmallow]"
+
+2. GraphQL Engines
+""""""""""""""""""
+
+Integrate a native GraphQL interface and the GraphiQL IDE:
+
+* **Strawberry:**
+  
+.. code-block:: bash
+  
+  pip install "dyne[graphql_strawberry]"
+
+* **Graphene:**
+  
+.. code-block:: bash
+  
+  pip install "dyne[graphql_graphene]"
+
+3. Full Suite
+"""""""""""""
+
+For a comprehensive development environment including all serialization engines, GraphQL support, Flask adapters, and testing utilities:
+
+.. code-block:: bash
+
+  pip install "dyne[full]"
 
 
-    app = dyne.App()
-    api = OpenAPI(app, description=description)
+System Requirements
+^^^^^^^^^^^^^^^^^^^
 
-    # Basic Authentication Example
-    users = dict(john="password", admin="password123")
-    roles = {"john": "user", "admin": ["user", "admin"]}
+Dyne is built for the modern Python ecosystem and requires **Python 3.12** or newer. This ensures first-class support for advanced type hinting and the latest asynchronous performance improvements.
 
-    basic_auth = BasicAuth()
-
-    @basic_auth.verify_password
-    async def verify_password(username, password):
-        if username in users and users.get(username) == password:
-            return username
-        return None
-
-    @basic_auth.error_handler
-    async def error_handler(req, resp, status_code=401):
-        resp.text = "Invalid credentials"
-        resp.status_code = status_code
-
-    @basic_auth.get_user_roles
-    async def get_user_roles(user):
-        return roles.get(user)
-
-Example: Book Creation API
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This example demonstrates a clean and minimal API endpoint for creating a new book. The API supports file uploads with built-in validation for file extensions and file sizes.
-
-.. code-block:: python
-
-    import dyne
-    from dyne.ext.auth import authenticate
-    from dyne.ext.auth.backends import BasicAuth
-    from dyne.ext.io.marshmallow import expect, input, output
-    from dyne.ext.io.marshmallow.fields import FileField
-
-    app = dyne.App()
-    api = OpenAPI(app, description=description)
-    basic_auth = BasicAuth()
-
-    class Book(Base):  # SQLAlchemy Model
-        __tablename__ = "books"
-        id = Column(Integer, primary_key=True)
-        price = Column(Float)
-        title = Column(String)
-        cover = Column(String, nullable=True)
-
-
-    class BookSchema(Schema): # Schemas: Marshmallow
-        id = fields.Integer(dump_only=True)
-        price = fields.Float()
-        title = fields.Str()
-        cover = fields.Str()
-
-    class BookCreateSchema(Schema):
-        price = fields.Float()
-        title = fields.Str()
-        image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)  # Built-in file validation
-
-
-    @app.route("/create", methods=["POST"])
-    @authenticate(basic_auth, role="user")
-    @input(BookCreateSchema, location="form")
-    @output(BookSchema)
-    @expect(
-        {
-            401: "Invalid credentials",
-        }
-    )
-    async def create(req, resp, *, data):
-        """Create book"""
-
-        image = data.pop("image")
-        await image.save(image.filename)  # File already validated
-
-        book = Book(**data, cover=image.filename)
-        session.add(book)
-        session.commit()
-
-        resp.obj = book
-
-This example demonstrates how Dyne simplifies API development by handling authentication, input validation, response serialization, and file handling with minimal code, while automatically generating OpenAPI documentation. 
-
-
-Class-Based Views
------------------
-
-Class-based views (and setting some headers and stuff)::
-
-    @app.route("/{greeting}")
-    class GreetingResource:
-        def on_request(self, req, resp, *, greeting):   # or on_get...
-            resp.text = f"{greeting}, world!"
-            resp.headers.update({'X-Life': '42'})
-            resp.status_code = app.status.HTTP_416
+.. tip::
+   **Zsh Users:** If you encounter a `no matches found` error, ensure your package name is quoted: ``pip install "dyne[extra]"``.
 
 
 Background Tasks
@@ -134,6 +104,207 @@ Here, you can spawn off a background thread to run any function, out-of-request:
 
         sleep()
         resp.content = "processing"
+
+
+File Uploads
+------------
+
+Dyne simplifies file handling by offering two primary approaches: **Schema-based validation** (via Marshmallow or Pydantic) for robust type and constraint checking, and **Native handling** for direct, manual processing.
+
+1. Schema-Based Uploads
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Using the ``@input`` decorator with a schema is the recommended way to handle uploads. This allows you to validate file metadata, size, and extensions before your code ever runs.
+
+A. Marshmallow Upload
+^^^^^^^^^^^^^^^^^^^^^
+
+Marshmallow integration uses the ``FileField`` to define constraints like allowed extensions and maximum file size.
+
+.. code-block:: python
+
+    from marshmallow import Schema, fields
+    from dyne.ext.io.marshmallow.fields import FileField
+    from dyne.ext.io.marshmallow import input
+
+    class UploadSchema(Schema):
+        description = fields.Str()
+        image = FileField(
+            allowed_extensions=["png", "jpg", "jpeg"], 
+            max_size=5 * 1024 * 1024  # 5MB
+        )
+
+    @app.route("/upload", methods=["POST"])
+    @input(UploadSchema, location="form")
+    async def upload(req, resp, *, data):
+        image = data.pop("image") # 'image' is a validated File object.
+        await image.asave(image.filename) 
+        
+        resp.media = {"success": True}
+
+B. Pydantic Upload
+^^^^^^^^^^^^^^^^^^
+
+Pydantic integration allows you to create reusable file types by subclassing ``FileField``. 
+
+.. important::
+    To support custom file objects in Pydantic V2, your schema must include ``arbitrary_types_allowed=True`` within the ``model_config``.
+
+.. code-block:: python
+
+    from pydantic import BaseModel, ConfigDict
+    from dyne.ext.io.pydantic.fields import FileField
+    from dyne.ext.io.pydantic import input
+
+    class Image(FileField):
+        max_size = 5 * 1024 * 1024
+        allowed_extensions = {"jpg", "jpeg", "png"}
+
+    class UploadSchema(BaseModel):
+        description: str
+        image: Image
+
+        model_config = ConfigDict(
+            from_attributes=True,
+            arbitrary_types_allowed=True
+        )
+
+    @app.route("/upload", methods=["POST"])
+    @input(UploadSchema, location="form")
+    async def upload(req, resp, *, data):
+        image = data.pop("image") # 'image' is a validated File object.
+        await image.asave(image.filename)
+
+        resp.media = {"success": True}
+
+
+Creating Custom Validators
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``FileField`` system is designed to be extensible. By default, both Pydantic and Marshmallow versions come pre-configured with two core validators:
+
+* ``validate_size``: Enforces the `max_size` constraint.
+* ``validate_extension``: Enforces the `allowed_extensions` constraint.
+
+Every validator in the registry—whether default or custom—receives a `File` object (imported from `from dyne.ext.io import File`) as its primary argument.
+
+Pydantic: Validation
+""""""""""""""""""""
+
+In Pydantic, you extend the validation logic by creating a subclass and updating the `file_validators` class variable. Custom validator methods must be decorated with `@classmethod` and should raise a standard `ValueError` upon failure.
+
+.. code-block:: python
+
+    from dyne.ext.io.pydantic.fields import FileField
+    from dyne.ext.io import File
+    from pydantic import BaseModel
+
+    class ImageField(FileField):
+        max_size = 2 * 1024 * 1024
+        allowed_extensions = {"jpg", "jpeg", "png"}
+        
+        # Append the new validator method name to the registry
+        file_validators = FileField.file_validators + ["validate_is_image"]
+
+        @classmethod
+        def validate_is_image(cls, file: File):
+            # Custom logic to check MIME types
+            if not file.content_type.startswith("image/"):
+                raise ValueError("File is not a valid image")
+
+    # Usage in a Model
+    class ProfileUpdate(BaseModel):
+        username: str
+        avatar: ImageField
+
+
+Marshmallow: Validation
+"""""""""""""""""""""""
+
+Marshmallow fields offer two ways to register custom validators. Unlike Pydantic, these methods are instance methods and must raise `marshmallow.ValidationError`.
+
+1. Using the Constructor (Instance Level)
+''''''''''''''''''''''''''''''''''''''''''
+
+This approach is ideal for adding validators dynamically during initialization. You modify the ``self.active_file_validators`` list inside the ``__init__`` method.
+
+.. code-block:: python
+
+    from dyne.ext.io import File
+    from dyne.ext.io.marshmallow.fields import FileField
+    from marshmallow import Schema, ValidationError
+
+    class SecureFileField(FileField):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            # Add a custom validator to this specific instance
+            self.active_file_validators.append("validate_virus_scan")
+
+        def validate_virus_scan(self, file: File):
+            if "virus" in file.filename:
+                raise ValidationError("Malicious file detected.")
+
+    # Usage in a Schema
+    class SubmissionSchema(Schema):
+        tax_report = SecureFileField(
+            max_size=2 * 1024 * 1024, 
+            allowed_extensions=["pdf"],
+            required=True
+        )
+
+2. Extending the Class Variable (Global Level)
+''''''''''''''''''''''''''''''''''''''''''''''
+
+For a simpler, more declarative approach, you can extend the `file_validators` class variable directly. This ensures that every instance of that subclass uses the custom validator by default.
+
+.. code-block:: python
+
+    class SecureFileField(FileField):
+        file_validators = FileField.file_validators + ["validate_virus_scan"]
+
+        def validate_virus_scan(self, file: File):
+            if "virus" in file.filename:
+                raise ValidationError("Malicious file detected")
+
+.. note::
+  **File Persistence Options**
+
+  Files uploaded via `FileFields` provide dual-mode persistence to fit your execution context. You can persist these files asynchronously using the `asave()` method—ideal for maintaining high-throughput in `async` views—or use the standard `save()` method for synchronous operations.
+
+2. Native File Uploads
+~~~~~~~~~~~~~~~~~~~~~~
+
+If you prefer not to use a schema, you can access uploaded files directly from the request object. This is useful for simple endpoints or when handling dynamic file inputs.
+
+.. code-block:: python
+
+    @app.route("/native-upload", methods=["POST"])
+    async def upload_file(req, resp):
+
+        @app.background.task
+        def process_file(file_data):
+            with open(f"./{file_data['filename']}", 'wb') as f:
+                f.write(file_data['content'])
+
+        # Extracts files from the multipart request
+        data = await req.media(format='files')
+        file_obj = data['image']
+
+        process_file(file_obj)
+        resp.media = {'status': 'processing'}
+
+Client-Side Request
+~~~~~~~~~~~~~~~~~~~
+
+You can test your file upload endpoints using ``httpx`` or any standard HTTP client.
+
+.. code-block:: python
+
+    files = {'image': ('photo.jpg', open('photo.jpg', 'rb'), 'image/jpeg')}
+    data = {'description': 'A beautiful sunset'}
+
+    r = app.client.post("http://;/native-upload", data=data, files=files)
+    print(r.json())
 
 
 GraphQL
@@ -377,6 +548,25 @@ Validation is supported for various sources:
 * **header**: Request headers.
 * **cookie**: Browser cookies.
 
+
+Installation
+^^^^^^^^^^^^
+
+Dyne’s IO support is provided via optional dependencies.
+Install Dyne along with the schema library you intend to use.
+
+* Pydantic:
+.. code-block:: bash
+
+    pip install "dyne[openapi_pydantic]"
+
+
+* Marshmallow:
+.. code-block:: bash
+
+    pip install "dyne[openapi_marshmallow]"
+
+
 Data Injection
 ^^^^^^^^^^^^^^
 
@@ -463,6 +653,23 @@ The ``@output`` decorator supports:
 * **status_code**: The HTTP status code for the response (default is 200).
 * **header**: A schema to validate and document response headers.
 * **description**: A string used for OpenAPI documentation to describe the response.
+
+Installation
+^^^^^^^^^^^^
+
+Dyne’s IO support is provided via optional dependencies.
+Install Dyne along with the schema library you intend to use.
+
+* Pydantic:
+.. code-block:: bash
+
+    pip install "dyne[openapi_pydantic]"
+
+
+* Marshmallow:
+.. code-block:: bash
+
+    pip install "dyne[openapi_marshmallow]"
 
 1. Pydantic Output
 ^^^^^^^^^^^^^^^^^^
@@ -1116,6 +1323,13 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
     from dyne.ext.io.marshmallow import input, output, expect
     from dyne.ext.io.marshmallow.fields import FileField
 
+    class Book(Base):  # SQLAlchemy Model
+        __tablename__ = "books"
+        id = Column(Integer, primary_key=True)
+        price = Column(Float)
+        title = Column(String)
+        cover = Column(String, nullable=True)
+
     # Define your schemas
     class BookSchema(Schema):
         id = fields.Integer(dump_only=True)
@@ -1140,7 +1354,25 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
 
     app = dyne.App()
     api = OpenAPI(app, description=description)
+
+    users = dict(john="password", admin="password123")
+    roles = {"john": "user", "admin": ["user", "admin"]}
     basic_auth = BasicAuth()
+
+    @basic_auth.verify_password
+    async def verify_password(username, password):
+        if username in users and users.get(username) == password:
+            return username
+        return None
+
+    @basic_auth.error_handler
+    async def error_handler(req, resp, status_code=401):
+        resp.text = "Invalid credentials"
+        resp.status_code = status_code
+
+    @basic_auth.get_user_roles
+    async def get_user_roles(user):
+        return roles.get(user)
 
     @app.route("/book", methods=["POST"])
     @authenticate(basic_auth, role="admin")
