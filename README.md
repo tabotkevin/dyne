@@ -44,36 +44,34 @@ async def create_book(req, resp, *, data):
 
 ![screenshot](screenshot.png)
 
-Powered by [Starlette](https://www.starlette.io/). [View documentation](https://dyneapi.readthedocs.io).
+Dyne delivers a production-ready ASGI foundation out of the box. It features an integrated static file server powered by (`WhiteNoise <http://whitenoise.evans.io/en/stable/>`\_), Jinja2 templating for dynamic rendering, and a high-performance uvloop-based webserver—all optimized with automatic Gzip compression for reduced latency.
 
-This gets you a ASGI app, with a production static files server pre-installed, jinja2
-templating (without additional imports), and a production webserver based on uvloop,
-serving up requests with gzip compression automatically.
+## Documentation
 
-## More Examples
+See the [documentation](https://dyneapi.readthedocs.io), for more details on features available in dyne.
 
-See
-[the documentation's feature tour](https://dyneapi.readthedocs.io/en/latest/tour.html)
-for more details on features available in dyne.
+## Installation
 
-## Installation Guide
+Dyne uses **optional dependencies** (extras) to keep the core package lightweight.  
+This allows you to install only the features you need for your specific project.
+
+### Core Installation
+
+To install the minimal ASGI core:
 
 ```bash
 pip install dyne
 ```
 
-Dyne uses **optional dependencies** (extras) to keep the core package lightweight.  
-This allows you to install only the features you need for your specific project.
-
 ## Installing Specific Feature Sets
 
-You can install the following bundles using `pip`.
+Choose the bundle that fits your technology stack. Note that for most shells (like Zsh on macOS), you should wrap the package name in quotes to handle the brackets correctly.
 
 > **Note:** The use of brackets `[]` is required.
 
-### 1. OpenAPI & Serialization
+### 1. OpenAPI + (Request Validation & Response Serialization)
 
-If you are building a REST API and want to use **Pydantic** or **Marshmallow** for validation and OpenAPI (Swagger) generation:
+Enable automated OpenAPI (Swagger) documentation, request validation and response serialization using your preferred schema library:
 
 #### With Pydantic
 
@@ -89,7 +87,7 @@ pip install "dyne[openapi_marshmallow]"
 
 ### 2. GraphQL Engines
 
-If you are building a GraphQL API, choose your preferred schema definition library:
+Integrate a native GraphQL interface and the GraphiQL IDE:
 
 #### With Strawberry
 
@@ -103,22 +101,13 @@ pip install "dyne[graphql_strawberry]"
 pip install "dyne[graphql_graphene]"
 ```
 
-### 3. Command Line Interface (CLI)
-
-To enable Dyne's terminal-based tools and commands:
-
-```bash
-pip install "dyne[cli]"
-```
-
-### 4. Full Installation
+### 3. Full Installation
 
 To install all available features, including:
 
 - Both GraphQL engines
 - Both serialization engines
 - OpenAPI support
-- Flask adapters
 - HTTP client helpers
 
 ```bash
