@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import httpx
 
 from dyne.ext.auth import authenticate
@@ -21,7 +23,7 @@ async def verify_password(username, password):
 
 
 @basic_auth.error_handler
-async def basic_error_handler(req, resp, status_code=401):
+async def basic_error_handler(req, resp, status_code=HTTPStatus.UNAUTHORIZED):
     resp.text = "Basic Custom Error"
     resp.status_code = status_code
 
@@ -34,7 +36,7 @@ async def verify_token(token):
 
 
 @token_auth.error_handler
-async def token_error_handler(req, resp, status_code=401):
+async def token_error_handler(req, resp, status_code=HTTPStatus.UNAUTHORIZED):
     resp.text = "Token Custom Error"
     resp.status_code = status_code
 
@@ -45,7 +47,7 @@ async def get_password(username):
 
 
 @digest_auth.error_handler
-async def digest_error_handler(req, resp, status_code=401):
+async def digest_error_handler(req, resp, status_code=HTTPStatus.UNAUTHORIZED):
     resp.text = "Digest Custom Error"
     resp.status_code = status_code
 
@@ -66,12 +68,12 @@ def test_basic_auth(app):
 
     # Test success
     response = app.client.get("http://;/Hello", auth=("john", "password"))
-    assert response.status_code == app.status.HTTP_200_OK
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hello, john!"
 
     # Test failure
     response = app.client.get("http://;/Hello", auth=("john", "wrong_password"))
-    assert response.status_code == 401
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.text == "Basic Custom Error"
 
 
@@ -86,13 +88,13 @@ def test_token_auth(app):
     # Test success
     headers = {"Authorization": "Bearer valid_token"}
     response = app.client.get("http://;/Hi", headers=headers)
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hi, admin!"
 
     # Test failure
     headers = {"Authorization": "Bearer invalid_token"}
     response = app.client.get("http://;/Hi", headers=headers)
-    assert response.status_code == 401
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.text == "Token Custom Error"
 
 
@@ -107,14 +109,14 @@ def test_digest_auth(app):
     response = app.client.get(
         "http://;/Hola", auth=httpx.DigestAuth("john", "password")
     )
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hola, john!"
 
     # Test failure
     response = app.client.get(
         "http://;/Hola", auth=httpx.DigestAuth("john", "wrong_password")
     )
-    assert response.status_code == 401
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.text == "Digest Custom Error"
 
 
@@ -132,16 +134,16 @@ def test_role_user(app):
 
     # Test success
     response = app.client.get("http://;/welcome", auth=("john", "password"))
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "welcome back john!"
 
     # Test user role failure
     response = app.client.get("http://;/admin", auth=("john", "password"))
-    assert response.status_code == 403  # Forbidden because john is not an admin
+    assert response.status_code == HTTPStatus.FORBIDDEN
 
     # Test admin role success
     response = app.client.get("http://;/admin", auth=("admin", "password123"))
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hello admin, you are an admin!"
 
 
@@ -154,18 +156,18 @@ def test_multi_auth_basic_success(app):
 
     # Test Basic Auth success
     response = app.client.get("http://;/multi/Hi", auth=("john", "password"))
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hi, john!"
 
     # Test Token Auth success
     headers = {"Authorization": "Bearer valid_token"}
     response = app.client.get("http://;/multi/Hi", headers=headers)
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hi, admin!"
 
     # Test Digest success
     response = app.client.get(
         "http://;/multi/Hi", auth=httpx.DigestAuth("john", "password")
     )
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.text == "Hi, john!"

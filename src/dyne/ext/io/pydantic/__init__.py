@@ -10,6 +10,7 @@ except ImportError as exc:
         "  pip install dyne[pydantic]\n"
     ) from exc
 
+from http import HTTPStatus
 from inspect import isclass
 from typing import Any, get_args, get_origin
 
@@ -217,7 +218,7 @@ class PydanticIO(BaseIO):
 
                     validated_data = validated_obj.model_dump()
                 except pd.ValidationError as e:
-                    resp.status_code = 400
+                    resp.status_code = HTTPStatus.BAD_REQUEST
                     resp.media = {"errors": cls._parse_error(e)}
                     return
 
@@ -230,7 +231,9 @@ class PydanticIO(BaseIO):
         return decorator
 
     @classmethod
-    def output(cls, schema, status_code=200, headers=None, description=None):
+    def output(
+        cls, schema, status_code=HTTPStatus.OK.value, headers=None, description=None
+    ):
         """
         A decorator for serializing response data using a **Pydantic model**.
 
@@ -328,7 +331,7 @@ class PydanticIO(BaseIO):
                     resp.status_code = status_code
 
                 except pd.ValidationError as e:
-                    resp.status_code = 400
+                    resp.status_code = HTTPStatus.BAD_REQUEST
                     resp.media = {"errors": cls._parse_error(e)}
 
             return wrapper

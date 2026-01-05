@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import graphene
 import strawberry
 
@@ -35,7 +37,7 @@ def test_strawberry(app):
     }
     """
     response = app.client.post("http://;/graphql", json={"query": query})
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.json() == {"data": {"hello": "Hello Alice"}}
 
     # Test graphene mutation
@@ -48,7 +50,7 @@ def test_strawberry(app):
     }
     """
     response = app.client.post("http://;/graphql", json={"query": mutation})
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.json() == {
         "data": {
             "createMessage": {
@@ -65,7 +67,7 @@ def test_strawberry(app):
     }
     """
     response = app.client.post("http://;/graphql", json={"query": invalid_query})
-    assert response.status_code == 400
+    assert response.status_code == HTTPStatus.BAD_REQUEST
     assert "errors" in response.json()
 
 
@@ -103,7 +105,7 @@ def test_graphene(app):
     }
     """
     response = app.client.post("http://;/graphql", json={"query": query})
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.json() == {"data": {"hello": "Hello Alice"}}
 
     # Test graphene mutation
@@ -116,7 +118,7 @@ def test_graphene(app):
     }
     """
     response = app.client.post("http://;/graphql", json={"query": mutation})
-    assert response.status_code == 200
+    assert response.status_code == HTTPStatus.OK
     assert response.json() == {
         "data": {
             "createMessage": {
@@ -133,5 +135,5 @@ def test_graphene(app):
     }
     """
     response = app.client.post("http://;/graphql", json={"query": invalid_query})
-    assert response.status_code == 400
+    assert response.status_code == HTTPStatus.BAD_REQUEST
     assert "errors" in response.json()

@@ -1,4 +1,5 @@
 import json
+from http import HTTPStatus
 
 try:
     from graphql.error.graphql_error import format_error
@@ -77,7 +78,7 @@ class GraphQLView:
         if result.data:
             response_data["data"] = result.data
         if result.errors:
-            resp.status_code = 400
+            resp.status_code = HTTPStatus.BAD_REQUEST
             response_data["errors"] = [format_error(error) for error in result.errors]
 
         resp.media = json.loads(json.dumps(response_data))

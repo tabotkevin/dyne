@@ -16,7 +16,7 @@ import os
 
 import docopt
 
-from .__version__ import __version__
+__version__ = "1.0.10"
 
 
 def cli():
