@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from base64 import b64decode
 from functools import wraps
 from hashlib import md5
+from http import HTTPStatus
 
 from .exceptions import AuthenticationError
 
@@ -46,8 +47,8 @@ class Backend(ABC):
         @wraps(f)
         async def decorated(req, res, *args, **kwargs):
             await f(req, res, *args, **kwargs)
-            if res.status_code == 200:
-                res.status_code = 401
+            if res.status_code == HTTPStatus.OK:
+                res.status_code = HTTPStatus.UNAUTHORIZED
             if "WWW-Authenticate" not in res.headers.keys():
                 res.headers["WWW-Authenticate"] = await self.auth_header(req)
             return res
@@ -120,10 +121,10 @@ class Backend(ABC):
                 except AuthenticationError:
                     user = None
                 if user is None:
-                    status_code = 401
+                    status_code = HTTPStatus.UNAUTHORIZED
                     return await self.auth_error_callback(req, resp, status_code)
                 elif not await self.authorize(role, user):
-                    status_code = 403
+                    status_code = HTTPStatus.FORBIDDEN
                 if not optional and status_code:
                     return await self.auth_error_callback(req, resp, status_code)
                 req.state.user = user

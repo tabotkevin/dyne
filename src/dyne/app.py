@@ -1,5 +1,6 @@
 import os
 from collections.abc import MutableMapping
+from http import HTTPStatus
 from pathlib import Path
 
 import uvicorn
@@ -15,7 +16,6 @@ from starlette.testclient import TestClient
 
 from dyne.config import Config
 
-from . import status
 from .background import BackgroundQueue
 from .formats import get_formats
 from .routes import Router
@@ -36,8 +36,6 @@ class App:
     :param encoding: Encoding for the env_file.
     :param environ: The environment mapping to use (defaults to os.environ).
     """
-
-    status = status
 
     def __init__(
         self,
@@ -191,7 +189,7 @@ class App:
             with open(index, "r") as f:
                 resp.html = f.read()
         else:
-            resp.status_code = status.HTTP_404_NOT_FOUND
+            resp.status_code = HTTPStatus.NOT_FOUND
             resp.text = "Not found."
 
     def redirect(
@@ -200,7 +198,7 @@ class App:
         location,
         *,
         set_text=True,
-        status_code=status.HTTP_301_MOVED_PERMANENTLY,
+        status_code=HTTPStatus.MOVED_PERMANENTLY,
     ):
         """Redirects a given response to a given location.
         :param resp: The Response to mutate.

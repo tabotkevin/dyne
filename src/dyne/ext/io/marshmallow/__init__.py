@@ -1,4 +1,5 @@
 from functools import wraps
+from http import HTTPStatus
 
 try:
     import marshmallow as ma
@@ -137,7 +138,7 @@ class MarshmallowIO(BaseIO):
                 try:
                     validated_data = loader.load(raw_data, unknown=unknown)
                 except ma.ValidationError as e:
-                    resp.status_code = 400
+                    resp.status_code = HTTPStatus.BAD_REQUEST
                     resp.media = {"errors": e.messages}
                     return
 
@@ -150,7 +151,9 @@ class MarshmallowIO(BaseIO):
         return decorator
 
     @classmethod
-    def output(cls, schema, status_code=200, headers=None, description=None):
+    def output(
+        cls, schema, status_code=HTTPStatus.OK.value, headers=None, description=None
+    ):
         """
         A decorator for serializing response data using a **Marshmallow schema**.
 
@@ -242,7 +245,7 @@ class MarshmallowIO(BaseIO):
                     resp.media = dumper.dump(obj)
                     resp.status_code = status_code
                 except ma.ValidationError as e:
-                    resp.status_code = 400
+                    resp.status_code = HTTPStatus.BAD_REQUEST
                     resp.media = {"errors": e.messages}
 
             return wrapper

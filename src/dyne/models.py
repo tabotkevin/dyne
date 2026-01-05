@@ -1,5 +1,6 @@
 import functools
 import inspect
+from http import HTTPStatus
 from http.cookies import SimpleCookie
 from urllib.parse import parse_qs
 
@@ -13,7 +14,6 @@ from starlette.responses import Response as StarletteResponse
 from starlette.responses import StreamingResponse as StarletteStreamingResponse
 
 from .statics import DEFAULT_ENCODING
-from .status import HTTP_301_MOVED_PERMANENTLY as HTTP_301
 
 
 class QueryDict(dict):
@@ -312,7 +312,9 @@ class Response:
 
         return func
 
-    def redirect(self, location, *, set_text=True, status_code=HTTP_301):
+    def redirect(
+        self, location, *, set_text=True, status_code=HTTPStatus.MOVED_PERMANENTLY
+    ):
         self.status_code = status_code
         if set_text:
             self.text = f"Redirecting to: {location}"

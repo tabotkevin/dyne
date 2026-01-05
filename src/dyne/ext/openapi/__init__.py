@@ -1,11 +1,11 @@
 import re
+from http import HTTPStatus
 from pathlib import Path
 from typing import get_origin
 
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
-from dyne import status
 from dyne.ext.auth.backends import BasicAuth, DigestAuth, TokenAuth
 from dyne.templates import Templates
 
@@ -250,10 +250,9 @@ class OpenAPI:
                             }
                         }
                     }
-
                     operation["responses"][output_status_code]["description"] = (
                         annot["output_description"]
-                        or status.STATUS_CODES[int(output_status_code)]
+                        or HTTPStatus(int(output_status_code)).phrase
                     )
 
                     if annot.get("output_headers_adapter"):
@@ -266,7 +265,7 @@ class OpenAPI:
 
                 else:
                     operation["responses"] = {
-                        "204": {"description": status.STATUS_CODES[204]}
+                        "204": {"description": HTTPStatus(204).phrase}
                     }
 
                 # --------------------------------------------------------
@@ -276,7 +275,7 @@ class OpenAPI:
                 for status_code, meta in annot.get("expect", {}).items():
                     response = {
                         "description": meta["description"]
-                        or status.STATUS_CODES[int(status_code)]
+                        or HTTPStatus(int(status_code)).phrase
                     }
 
                     if meta.get("adapter"):
@@ -403,7 +402,7 @@ class OpenAPI:
         resp.html = self.docs
 
     def schema_response(self, req, resp):
-        resp.status_code = status.HTTP_200_OK
+        resp.status_code = HTTPStatus.OK
         resp.headers["Content-Type"] = "application/x-yaml"
         resp.content = self.openapi(req)
 
