@@ -264,7 +264,7 @@ class Router:
 
     def mount(self, route, app):
         """Mounts ASGI  applications at a given route"""
-        self.apps.update(route, app)
+        self.apps[route] = app
 
     def add_event_handler(self, event_type, handler):
         assert event_type in (

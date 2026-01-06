@@ -151,9 +151,7 @@ class MarshmallowIO(BaseIO):
         return decorator
 
     @classmethod
-    def output(
-        cls, schema, status_code=HTTPStatus.OK.value, headers=None, description=None
-    ):
+    def output(cls, schema, status_code=200, headers=None, description=None):
         """
         A decorator for serializing response data using a **Marshmallow schema**.
 

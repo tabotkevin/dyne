@@ -42,8 +42,10 @@ async def test_state_isolation(app):
 
 
 @pytest.mark.asyncio
-async def test_app_state_attribute_error(app):
+async def test_app_state_attribute_error_with_debug(app):
     """Accessing a non-existent state attribute should raise AttributeError."""
+
+    app.debug = True
 
     @app.route("/error")
     async def error_route(req, resp):
@@ -52,6 +54,21 @@ async def test_app_state_attribute_error(app):
 
     with pytest.raises(AttributeError) as err:  # noqa: F841
         r = app.client.get("/error")  # noqa: F841
+
+
+@pytest.mark.asyncio
+async def test_app_state_attribute_error_no_debug(app):
+    """Accessing a non-existent state attribute should raise AttributeError."""
+
+    @app.route("/error")
+    async def error_route(req, resp):
+        val = req.app.state.missing_key
+        resp.text = val
+
+    # caught by error handler.
+    r = app.client.get("/error")
+    assert r.status_code == 500
+    assert r.text == "500 Internal Server Error"
 
 
 @pytest.mark.asyncio
