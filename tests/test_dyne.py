@@ -301,7 +301,9 @@ def test_yaml_uploads(app):
     assert r.json() == dump
 
 
-def test_form_uploads(app):
+def test_form_uploads_with_debug(app):
+    app.debug = True
+
     @app.route("/", methods=["POST"])
     async def route(req, resp):
         resp.media = await req.media()
@@ -314,6 +316,23 @@ def test_form_uploads(app):
     files = {"complicated": (None, "times")}
     with pytest.raises(Exception) as err:  # noqa: F841
         r = app.client.post(app.url_for(route), files=files)
+
+
+def test_form_uploads_no_debug(app):
+
+    @app.route("/", methods=["POST"])
+    async def route(req, resp):
+        resp.media = await req.media()
+
+    dump = {"complicated": "times"}
+    r = app.client.post(app.url_for(route), data=dump)
+    assert r.json() == dump
+
+    # caught by error handler.
+    files = {"complicated": (None, "times")}
+    r = app.client.post(app.url_for(route), files=files)
+    assert r.status_code == 500
+    assert r.text == "500 Internal Server Error"
 
 
 def test_json_downloads(app):
@@ -547,7 +566,9 @@ def test_template_async(app, template_path):
     assert r.text == "test"
 
 
-def test_file_uploads(app):
+def test_file_uploads_with_debug(app):
+    app.debug = True
+
     @app.route("/", methods=["POST"])
     async def upload(req, resp):
         files = await req.media("files")
@@ -571,6 +592,35 @@ def test_file_uploads(app):
     data = {"not-a-file": b"data only"}
     with pytest.raises(Exception) as err:  # noqa: F841
         r = app.client.post(app.url_for(upload_not_file), files=data)
+
+
+def test_file_uploads_no_debug(app):
+
+    @app.route("/", methods=["POST"])
+    async def upload(req, resp):
+        files = await req.media("files")
+        result = {}
+        result["hello"] = files["hello"]["content"].decode("utf-8")
+        resp.media = {"files": result}
+
+    world = io.BytesIO(b"world")
+    data = {"hello": ("hello.txt", world, "text/plain")}
+    r = app.client.post(app.url_for(upload), files=data)
+    assert r.json() == {"files": {"hello": "world"}}
+
+    @app.route("/not_file", methods=["POST"])
+    async def upload_not_file(req, resp):
+        files = await req.media("files")
+        result = {}
+        result["not-a-file"] = files["not-a-file"].decode("utf-8")
+        resp.media = {"files": result}
+
+    # caught by error handler.
+    world = io.BytesIO(b"world")
+    data = {"not-a-file": b"data only"}
+    r = app.client.post(app.url_for(upload_not_file), files=data)
+    assert r.status_code == 500
+    assert r.text == "500 Internal Server Error"
 
 
 def test_500(app):

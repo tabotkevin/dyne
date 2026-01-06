@@ -1,6 +1,5 @@
 import abc
 import os
-from http import HTTPStatus
 
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
@@ -266,7 +265,5 @@ class BaseIO(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def output(
-        cls, schema, status_code=HTTPStatus.OK.value, headers=None, description=None
-    ):
+    def output(cls, schema, status_code=200, headers=None, description=None):
         pass

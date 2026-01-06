@@ -1,3 +1,4 @@
+import inspect
 import os
 from collections.abc import MutableMapping
 from http import HTTPStatus
@@ -5,6 +6,7 @@ from pathlib import Path
 
 import uvicorn
 from starlette.datastructures import State
+from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.middleware.exceptions import ExceptionMiddleware
@@ -15,6 +17,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.testclient import TestClient
 
 from dyne.config import Config
+from dyne.models import Request, Response
 
 from .background import BackgroundQueue
 from .formats import get_formats
@@ -91,9 +94,9 @@ class App:
         self._session = None
 
         self.default_endpoint = None
-        self.app = ExceptionMiddleware(self.router, debug=debug)
+        self.error_handlers = {}
+        self.app = ExceptionMiddleware(self._dispatch, debug=self.debug)
 
-        # A store for applications to retain long-lived resources and shared context.
         self.state = State()
         self.add_middleware(GZipMiddleware)
 
@@ -104,7 +107,7 @@ class App:
 
         if self.cors:
             self.add_middleware(CORSMiddleware, **self.cors_params)
-        self.add_middleware(ServerErrorMiddleware, debug=debug)
+        self.add_middleware(ServerErrorMiddleware, debug=self.debug)
         self.add_middleware(SessionMiddleware, secret_key=self.secret_key)
 
         # TODO: Update docs for templates
@@ -238,6 +241,48 @@ class App:
         """
 
         self.router.add_event_handler(event_type, handler)
+
+    def error_handler(self, status_code: int):
+        """Decorator for registering app-level error handlers."""
+        HTTPStatus(status_code)  # Validation using our new utility
+
+        def decorator(f):
+            self.error_handlers[status_code] = f
+            return f
+
+        return decorator
+
+    async def _handle_error(self, req, resp, status_code: int, exception=None):
+        handler = self.error_handlers.get(status_code)
+
+        if handler:
+            if inspect.iscoroutinefunction(handler):
+                await handler(req, resp, exception)
+            else:
+                handler(req, resp, exception)
+        else:
+            status_obj = HTTPStatus(status_code)
+            resp.status_code = status_obj.value
+            resp.text = f"{status_obj.value} {status_obj.phrase}"
+
+    async def _dispatch(self, scope, receive, send):
+        try:
+            await self.router(scope, receive, send)
+
+        except HTTPException as e:
+            await self._trigger_error(scope, receive, send, e.status_code, e)
+
+        except Exception as e:
+            if self.debug:
+                raise e
+
+            await self._trigger_error(scope, receive, send, 500, e)
+
+    async def _trigger_error(self, scope, receive, send, status_code, exc):
+        req = Request(scope, receive, app=self, formats=self.formats)
+        resp = Response(req, formats=self.formats)
+        await self._handle_error(req, resp, status_code, exception=exc)
+        await resp(scope, receive, send)
 
     def route(self, route=None, methods=("GET",), **options):
         """Decorator for creating new routes around function and class definitions.

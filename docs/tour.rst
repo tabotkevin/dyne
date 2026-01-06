@@ -92,7 +92,9 @@ Dyne is built for the modern Python ecosystem and requires **Python 3.12** or ne
 Background Tasks
 ----------------
 
-Here, you can spawn off a background thread to run any function, out-of-request::
+Here, you can spawn off a background thread to run any function, out-of-request
+
+.. code-block:: python
 
     @app.route("/")
     def hello(req, resp):
@@ -104,6 +106,120 @@ Here, you can spawn off a background thread to run any function, out-of-request:
 
         sleep()
         resp.content = "processing"
+
+
+Error Handling
+--------------
+
+Dyne provides an ergonomic and flexible mechanism for handling HTTP errors and unexpected exceptions. You can define custom responses for specific HTTP status codes (such as ``404`` or ``403``) and also handle unhandled server errors (``500``).
+
+Error handlers integrate directly into the request lifecycle and give you full control over the response sent to the client.
+
+The `@error_handler` Decorator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To register a custom error handler, use the ``@app.error_handler`` decorator.
+The decorated function **must** be asynchronous and accept the following arguments:
+
+* `req` – The incoming :class:`Request`
+* `resp` – The outgoing :class:`Response`
+* `exc` – The raised exception object
+
+Example:
+
+.. code-block:: python
+
+  @app.error_handler(404)
+  async def handle_404(req, resp, exc):
+    resp.status_code = 404
+    resp.media = {"error": The page you are looking for does not exist."}
+
+  @app.error_handler(500)
+  async def handle_500(req, resp, exc):
+    resp.status_code = 500
+    resp.text = f"Internal Server Error: {str(exc)}"
+
+Manual Error Triggering
+^^^^^^^^^^^^^^^^^^^^^^^
+
+You can manually invoke an error handler from within any route using the ``abort()`` function.
+This is particularly useful for validation errors, authentication failures, or permission checks.
+
+Example:
+
+.. code-block:: python
+
+  from dyne.exceptions import abort
+
+  @app.route("/secret")
+  async def secret_page(req, resp):
+    if not req.headers.get("Authorization"):
+      # Triggers the 403 error handler
+      abort(403, detail="You do not have access to this resource.")
+
+    resp.text = "Welcome to the secret vault."
+
+Using the Exception Object
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``exc`` argument passed into your handler provides context about the error:
+
+* For ``HTTPException`` instances (raised via ``abort()``):
+
+  * ``exc.status_code`` contains the HTTP status
+  * ``exc.detail`` contains the custom error message (if provided)
+
+* For unhandled runtime errors, ``exc`` will be the original Python exception
+  (e.g., ``ValueError``, ``AttributeError``).
+
+Example:
+
+.. code-block:: python
+
+  @app.error_handler(403)
+  async def forbidden_handler(req, resp, exc):
+    resp.status_code = 403
+    resp.media = {
+      "error": "Forbidden",
+      "message": getattr(exc, "detail", "Access Denied"),
+    }
+
+Debug vs. Production Mode
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error-handling behavior depends on the application's boolean ``debug`` attribute.
+
+**Debug Mode** (``debug=True``)
+"""""""""""""""""""""""""""""
+
+* Unhandled exceptions (``500`` errors) are re-raised.
+* The Interactive Traceback middleware displays detailed error information in the browser.
+* Ideal for development and debugging.
+
+**Production Mode** (`debug=False`)
+"""""""""""""""""""""""""""""""""""
+
+* Unhandled exceptions are intercepted by your custom ``500`` handler (or a default fallback).
+* Internal stack traces are hidden from users for security reasons.
+
+Example:
+
+.. code-block:: python
+
+  app = App(debug=False)  # Production mode
+
+Default Error Handlers
+^^^^^^^^^^^^^^^^^^^^^^
+
+If no custom error handlers are registered, Dyne provides safe defaults:
+
+* **404 Not Found**
+  Returns a plain-text `"Not Found"` response.
+
+* **500 Internal Server Error**
+  When ``debug=False``, returns a plain-text `"500 Internal Server Error"` response.
+
+These defaults ensure predictable behavior even without explicit configuration.
 
 
 File Uploads
