@@ -85,9 +85,8 @@ def test_missing_key_errors():
     with pytest.raises(AttributeError):
         _ = config.NON_EXISTENT
 
-    # .get() without default should raise KeyError
-    with pytest.raises(KeyError):
-        config.get("NON_EXISTENT")
+    # .get() without default should return None
+    assert config.get("NON_EXISTENT") is None
 
 
 def test_from_env_file(tmp_path):
@@ -150,8 +149,7 @@ def test_custom_environ_injection():
     assert config.get("APP_KEY") == "secret-from-mock-env"
 
     # Verify it doesn't leak/read from actual os.environ if not in custom_env
-    with pytest.raises(KeyError):
-        config.get("PATH")  # Standard OS var should be missing here
+    assert config.get("PATH") is None  # Standard OS var should be missing here
 
 
 def test_encoding_support(tmp_path):
@@ -236,3 +234,73 @@ def test_attribute_error_on_app_config():
         _ = app.config.NON_EXISTENT_KEY
 
     assert "Config has no attribute 'NON_EXISTENT_KEY'" in str(excinfo.value)
+
+
+def test_require_returns_value_from_internal_config():
+    cfg = Config(environ={})
+    cfg["DATABASE_URL"] = "sqlite:///test.db"
+
+    assert cfg.require("DATABASE_URL") == "sqlite:///test.db"
+
+
+def test_require_reads_from_environment_over_internal():
+    environ = {"DATABASE_URL": "postgresql://env-db"}
+    cfg = Config(environ=environ)
+    cfg["DATABASE_URL"] = "sqlite:///file.db"
+
+    assert cfg.require("DATABASE_URL") == "postgresql://env-db"
+
+
+def test_require_applies_cast():
+    cfg = Config(environ={})
+    cfg["POOL_SIZE"] = "10"
+
+    value = cfg.require("POOL_SIZE", cast=int)
+    assert value == 10
+    assert isinstance(value, int)
+
+
+def test_require_raises_if_missing():
+    cfg = Config(environ={})
+
+    with pytest.raises(RuntimeError) as exc:
+        cfg.require("DATABASE_URL")
+
+    assert "Missing required config: DATABASE_URL" in str(exc.value)
+
+
+def test_require_raises_on_invalid_cast():
+    cfg = Config(environ={})
+    cfg["DEBUG"] = "notabool"
+
+    with pytest.raises(ValueError) as exc:
+        cfg.require("DEBUG", cast=bool)
+
+    assert "Not a valid bool" in str(exc.value)
+
+
+def test_require_with_env_prefix():
+    environ = {"APP_DATABASE_URL": "sqlite:///prefixed.db"}
+    cfg = Config(environ=environ, env_prefix="APP_")
+
+    assert cfg.require("DATABASE_URL") == "sqlite:///prefixed.db"
+
+
+def test_attribute_access_returns_value():
+    cfg = Config(environ={})
+    cfg["DEBUG"] = True
+
+    assert cfg.DEBUG is True
+
+
+def test_attribute_access_raises_attribute_error_if_missing():
+    cfg = Config(environ={})
+
+    with pytest.raises(AttributeError):
+        _ = cfg.NOT_DEFINED
+
+
+def test_get_returns_none_for_missing_key():
+    cfg = Config(environ={})
+
+    assert cfg.get("NOT_DEFINED") is None

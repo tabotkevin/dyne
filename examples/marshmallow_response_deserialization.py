@@ -1,41 +1,27 @@
 import os
 
 from marshmallow import Schema, fields
-from sqlalchemy import Column, Float, Integer, String, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import Column, Float, Integer, String
 
 import dyne
+from dyne.ext.db.alchemical import Alchemical, Model
 from dyne.ext.io.marshmallow import input, output
 
-app = dyne.App()
 
-
-class Base(DeclarativeBase):
-    pass
-
-
-# Define an example SQLAlchemy model
-class Book(Base):
+class Book(Model):
     __tablename__ = "books"
     id = Column(Integer, primary_key=True)
     price = Column(Float)
     title = Column(String)
 
 
-# Create tables in the database
-engine = create_engine("sqlite:///db", connect_args={"check_same_thread": False})
-Base.metadata.create_all(engine)
+class Config:
+    ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
-# Create a session
-Session = sessionmaker(bind=engine)
-session = Session()
-
-book1 = Book(price=9.99, title="Harry Potter")
-book2 = Book(price=10.99, title="Pirates of the sea")
-session.add(book1)
-session.add(book2)
-session.commit()
+app = dyne.App()
+app.config.from_object(Config)
+db = Alchemical(app)
 
 
 class BookSchema(Schema):
@@ -50,9 +36,10 @@ class BookSchema(Schema):
 async def create(req, resp, *, data):
     """Create book"""
 
+    session = await req.db
     book = Book(**data)
     session.add(book)
-    session.commit()
+    await session.commit()
 
     resp.obj = book
 
@@ -62,8 +49,14 @@ async def create(req, resp, *, data):
 async def all_books(req, resp):
     """Get all books"""
 
-    resp.obj = session.query(Book)
+    session = await req.db
+    query = await session.scalars(Book.select())
 
+    resp.obj = query.all()
+
+
+if __name__ == "__main__":
+    app.run()
 
 r = app.client.post("http://;/create", json={"price": 11.99, "title": "Monty Python"})
 print(r.json())

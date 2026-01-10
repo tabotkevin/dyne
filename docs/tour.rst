@@ -4,14 +4,19 @@ Feature Tour
 Introduction
 ------------
 
-Dyne brings simplicity and elegance to  Application and API development, offering built-in features such as:
 
-* **Authentication**: Support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
-* **Input Validation**: The `@input` decorator makes validating request bodies easy.
-* **Response Serialization**: Use the `@output` decorator to serialize responses automatically.
-* **Request Contracts**: The ``@expect`` decorator allows you to document and enforce required headers, cookies, or specific request metadata.
-* **Asynchronous Events**: Use the @webhook decorator to define and document the webhooks your application has.
-* **OpenAPI Documentation**: Full self-generated OpenAPI documentation with seamless integration for both `Pydantic` and `Marshmallow` schemas.
+Dyne brings simplicity and elegance to modern application and API development, with a carefully curated set of built-in capabilities:
+
+* **Authentication**: First-class support for ``BasicAuth``, ``TokenAuth``, and ``DigestAuth``.
+* **Request Validation**: The ``@input`` decorator provides clear, declarative validation for request payloads.
+* **Response Serialization**: Automatically serialize responses using the ``@output`` decorator.
+* **Request Contracts**: Use ``@expect`` to document and enforce required headers, cookies, and request metadata.
+* **Asynchronous Events**: Define and document application webhooks with the ``@webhook`` decorator.
+* **OpenAPI Documentation**: Fully self-generated OpenAPI specifications with seamless support for both `Pydantic` and `Marshmallow`.
+* **Type-Casted Configuration**: First-class configuration with automatic casting and validation for environment variables and application settings.
+* **GraphQL Support**: Native integration with ``Strawberry`` and ``Graphene`` for building GraphQL APIs alongside REST endpoints.
+* **Database Integration**: Native SQLAlchemy support powered by ``Alchemical``, offering async-first, request-scoped session management with minimal configuration.
+
 
 Here's how you can get started:
 
@@ -652,6 +657,390 @@ Here are some example GraphQL queries and mutations you can use:
 For more advanced configurations or additional examples, refer to the respective documentation for **Strawberry** and **Graphene**.
 
 
+Configuration
+--------------
+
+Dyne features a hybrid configuration system that is "Zero-Config" by default but highly customizable when needed. 
+
+Automatic Discovery
+^^^^^^^^^^^^^^^^^^^
+
+Dyne automatically looks for a file named ``.env`` in your current working directory (CWD) upon initialization. If found, these variables are loaded as defaults.
+
+.. code-block:: python
+
+    from dyne import App
+
+    # If a .env exists in your folder, it is loaded automatically!
+    app = App()
+    print(app.config.DATABASE_URL)
+
+Manual Initialization
+^^^^^^^^^^^^^^^^^^^^^
+
+You can override the discovery behavior or add prefixes to your environment lookups.
+
+.. code-block:: python
+
+    app = App(
+        env_file=".env.production", # Use a specific file instead of discovery
+        env_prefix="DYNE_",         # Only look for vars starting with DYNE_
+        encoding="utf-8"            # Specify file encoding
+    )
+
+From Python Objects
+^^^^^^^^^^^^^^^^^^^
+
+You can seed your configuration using a class or module. Only **UPPERCASE** attributes are imported.
+
+.. code-block:: python
+
+    class DevelopmentConfig:
+        PORT = 5042
+        DEBUG = True
+
+    app.config.from_object(DevelopmentConfig)
+
+
+Resolution Hierarchy
+^^^^^^^^^^^^^^^^^^^^
+
+When you access a configuration key, Dyne searches in this specific order to ensure production environments can always override local settings:
+
+1. **OS Environment**: System variables (e.g., set via ``export`` or Docker).
+2. **Internal Store**: Values from the automatically discovered ``.env`` or an explicit ``env_file``.
+3. **Python Objects**: Values seeded via ``app.config.from_object()``.
+4. **Defaults**: The fallback value provided in ``app.config.get(key, default=...)``.
+
+Type Casting
+^^^^^^^^^^^^
+
+Because environment variables are always strings, Dyne provides a casting engine to prevent "stringly-typed" bugs.
+
+.. code-block:: python
+
+    # Automatically converts "true", "1", "yes" to True
+    debug = app.config.get("DEBUG", cast=bool)
+
+    # Converts string "8080" to integer 8080
+    port = app.config.get("PORT", cast=int, default=8000)
+
+Configuration in Routes
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Access your settings anywhere in your application via the ``request.app`` reference.
+
+.. code-block:: python
+
+    @app.route("/status")
+    async def status(req, resp):
+        if req.app.config.DEBUG:
+            resp.media = {"status": "debug-mode", "db": req.app.config.DATABASE_URL}
+        else:
+            resp.media = {"status": "production"}
+
+
+Access Patterns
+^^^^^^^^^^^^^^^
+
+Dyne's configuration system provides three distinct ways to access configuration
+values. Each is designed for a specific use case.
+
+Using ``get()`` (Safe & Optional)
+"""""""""""""""""""""""""""""""""
+
+The :meth:`Config.get` method is the most flexible and extension-friendly way
+to read configuration values.
+
+* Returns a default value when the key is missing
+* Supports automatic type casting
+* Never raises for missing keys
+
+Example::
+
+    debug = app.config.get("DEBUG", cast=bool, default=False)
+    pool_size = app.config.get("DB_POOL_SIZE", cast=int, default=5)
+
+This is the **preferred access method for plugins and optional features**.
+
+
+Using ``require()`` (Mandatory Configuration)
+"""""""""""""""""""""""""""""""""""""""""""""
+
+The :meth:`Config.require` method is used when a configuration value is
+**mandatory for correct application behavior**.
+
+* Raises immediately if the key is missing
+* Supports type casting
+* Fails fast during application startup
+
+Example::
+
+    database_url = app.config.require("DATABASE_URL")
+
+If the value is missing, Dyne raises::
+
+    RuntimeError: Missing required config: DATABASE_URL
+
+This method is ideal for database connections, secret keys, and core services.
+
+
+Using Attribute Access (Strict & Explicit)
+""""""""""""""""""""""""""""""""""""""""""
+
+Configuration values may also be accessed as attributes::
+
+    app.config.DATABASE_URL
+
+Attribute access is **strict**:
+
+* Raises :class:`AttributeError` if the key is missing
+* Does not support defaults or casting
+* Best suited for application-level constants
+
+This behavior helps catch typos and misconfiguration early::
+
+    app.config.DATABSE_URL
+    AttributeError: Config has no attribute 'DATABSE_URL'
+
+
+Summary
+^^^^^^^
+
++------------------+------------+------------+---------------+
+| Access Method     | Defaults   | Casting    | Raises on Miss|
++==================+============+============+===============+
+| ``get()``         | Yes        | Yes        | No            |
++------------------+------------+------------+---------------+
+| ``require()``     | No         | Yes        | Yes           |
++------------------+------------+------------+---------------+
+| Attribute Access  | No         | No         | Yes           |
++------------------+------------+------------+---------------+
+
+Choose the access pattern that best matches the criticality of the configuration
+value.
+
+
+
+SQLAlchemy Integration (Alchemical)
+-----------------------------------
+
+Dyne provides first-class **SQLAlchemy** support through an integration with
+`Alchemical <https://alchemical.readthedocs.io/>`_, a lightweight wrapper around
+SQLAlchemy that simplifies engine, session, and transaction management.
+
+This integration is designed to be:
+
+- **Async-native**
+- **Zero-config by default**
+- **Framework-agnostic**
+- **Production-ready**
+
+Overview
+^^^^^^^^
+
+The Alchemical extension provides:
+
+- Automatic engine and session management
+- Async SQLAlchemy 2.0 support
+- Lazy session creation per request
+- Optional automatic transaction commit
+- Clean request-scoped lifecycle handling
+
+Installation
+^^^^^^^^^^^^
+
+Install Dyne with SQLAlchemy support:
+
+.. code-block:: bash
+
+    pip install "dyne[sqlalchemy]"
+
+Configuration
+^^^^^^^^^^^^^
+
+Alchemical uses Dyne’s configuration system and requires **one database URL**.
+
+Supported configuration keys:
+
++------------------------------+----------+---------------------------------------------+
+| Key                          | Required | Description                                 |
++==============================+==========+=============================================+
+| ALCHEMICAL_DATABASE_URL      | Yes      | Primary database connection URL             |
++------------------------------+----------+---------------------------------------------+
+| ALCHEMICAL_BINDS             | No       | Additional database binds                   |
++------------------------------+----------+---------------------------------------------+
+| ALCHEMICAL_ENGINE_OPTIONS    | No       | Extra SQLAlchemy engine options             |
++------------------------------+----------+---------------------------------------------+
+| ALCHEMICAL_AUTOCOMMIT        | No       | Auto-commit at end of request (default: no) |
++------------------------------+----------+---------------------------------------------+
+
+Example ``.env`` file:
+
+.. code-block:: bash
+
+    ALCHEMICAL_DATABASE_URL="sqlite:///app.db"
+    ALCHEMICAL_AUTOCOMMIT=true
+
+Initializing the Extension
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create and register the database extension during app setup:
+
+.. code-block:: python
+
+    from dyne import App
+    from dyne.ext.db.alchemical import Alchemical
+
+    app = App()
+    db = Alchemical(app)
+
+The database instance is automatically attached to:
+
+.. code-block:: python
+
+    app.state.db
+
+Defining Models
+^^^^^^^^^^^^^^^
+
+Models inherit from the Alchemical ``Model`` base class:
+
+.. code-block:: python
+
+
+    from sqlalchemy.orm import Mapped, mapped_column
+    from dyne.ext.db.alchemical import Model
+    from sqlalchemy import String
+
+    class User(Model):
+        id: Mapped[int] = mapped_column(primary_key=True)
+        username: Mapped[str] = mapped_column(String(64), unique=True)
+
+Creating Tables
+^^^^^^^^^^^^^^^
+
+Create database tables on application startup:
+
+.. code-block:: python
+
+    @app.on_event("startup")
+    async def create_tables():
+        await db.create_all()
+
+Request-Scoped Sessions
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Each HTTP request receives a **lazy, request-scoped session**.
+
+The session is created **only when accessed**, and is automatically:
+
+- Rolled back on error
+- Committed (if ``ALCHEMICAL_AUTOCOMMIT=true``)
+- Closed at the end of the request
+
+Accessing the Session
+^^^^^^^^^^^^^^^^^^^^^
+
+Inside route handlers, access the session via the request:
+
+.. code-block:: python
+
+    @app.route("/users")
+    async def list_users(req, resp):
+        session = await req.db
+
+        result = await session.execute(
+            User.select()
+        )
+        users = result.scalars().all()
+
+        resp.media = [
+            {"id": u.id, "username": u.username}
+            for u in users
+        ]
+
+Creating Records
+^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    @app.route("/users", methods=["POST"])
+    async def create_user(req, resp):
+        data = await req.media()
+
+        if "username" not in data:
+            abort(400, "username required")
+
+        user = User(username=data["username"])
+
+        session = await req.db
+        session.add(user)
+        await session.commit() # Or not at all if auto commit is True
+
+        resp.status_code = 201
+        resp.media = {"message": "User created"}
+
+Transaction Behavior
+^^^^^^^^^^^^^^^^^^^^
+
+By default:
+
+- Transactions **must be committed manually**
+- Rollbacks occur automatically on unhandled exceptions
+
+Enable automatic commit by setting:
+
+.. code-block:: bash
+
+    ALCHEMICAL_AUTOCOMMIT=true
+
+Multiple Databases (Binds)
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Alchemical supports multiple databases via **binds**:
+
+.. code-block:: python
+
+    ALCHEMICAL_BINDS = {
+        "analytics": "postgresql+asyncpg://..."
+    }
+
+Models can specify a bind using:
+
+.. code-block:: python
+
+    class Event(Model):
+        __bind_key__ = "analytics"
+
+Async-First Design
+^^^^^^^^^^^^^^^^^^
+
+This integration uses:
+
+- SQLAlchemy 2.x async engine
+- ``async_sessionmaker``
+- Proper ASGI lifecycle handling
+- Zero thread-locals
+
+It is safe for:
+
+- High concurrency
+- Background tasks
+- Long-running requests
+
+Error Handling
+^^^^^^^^^^^^^^
+
+If a route raises an exception:
+
+- The session is rolled back
+- The connection is released
+- Dyne’s error handlers take over
+
+No session leaks occur between requests.
+
+
 Request Validation
 ------------------
 
@@ -798,12 +1187,23 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
 
     import dyne
     from pydantic import BaseModel, ConfigDict
+    from dyne.ext.db.alchemical import Alchemical, Model
     from dyne.ext.io.pydantic import output
 
+    class Config:
+        ALCHEMICAL_DATABASE_URL = "sqlite:///app.db"
+
     app = dyne.App()
+    app.config.from_object(Config)
+
+    db = Alchemical(app)
+
+    @app.on_event("startup")
+    async def setup_db():
+        await db.create_all()
 
     # Define an example SQLAlchemy model
-    class Book(Base):
+    class Book(Model):
         __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
@@ -821,7 +1221,8 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
     @output(BookSchema)
     async def get_book(req, resp, id):
         # Fetch a SQLAlchemy object
-        book = session.query(Book).get(id)
+        session = await req.db
+        book = await session.scalar(Book.select().filter_by(id=id))
         
         # Assign the object to resp.obj
         # The extension converts the ORM model to JSON automatically
@@ -830,8 +1231,11 @@ To serialize using Pydantic, import the decorator from ``dyne.ext.io.pydantic``.
     @app.route("/all-books")
     @output(BookSchema)
     async def list_all(req, resp):
+        session = await req.db
+        query = await session.scalars(Book.select())
+
         # resp.obj can also be a list or a query object
-        resp.obj = session.query(Book).all()
+        resp.obj = query.all()
 
 2. Marshmallow Output
 ^^^^^^^^^^^^^^^^^^^^^
@@ -841,13 +1245,24 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
 .. code-block:: python
 
     from marshmallow import Schema, fields
+    from dyne.ext.db.alchemical import Alchemical, Model
     from dyne.ext.io.marshmallow import output
     import dyne
 
+    class Config:
+        ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
     app = dyne.App()
+    app.config.from_object(Config)
+
+    db = Alchemical(app)
+
+    @app.on_event("startup")
+    async def setup_db():
+        await db.create_all()
 
     # Define an example SQLAlchemy model
-    class Book(Base):
+    class Book(Model):
         __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
@@ -864,7 +1279,8 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
     @output(BookSchema)
     async def get_book(req, resp, id):
         # Fetch a SQLAlchemy object
-        book = session.query(Book).get(id)
+        session = await req.db
+        book = await session.scalar(Book.select().filter_by(id=id))
         
         # Assign the object to resp.obj
         # The extension converts the ORM model to JSON automatically
@@ -873,8 +1289,11 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
     @app.route("/all-books")
     @output(books)
     async def list_all(req, resp):
+        session = await req.db
+        query = await session.scalars(Book.select())
+
         # resp.obj can also be a list or a query object
-        resp.obj = session.query(Book).all()
+        resp.obj = query.all()
 
 
 Expected Responses
@@ -1052,6 +1471,8 @@ In a production endpoint, you will typically use all three decorators together t
   from dyne.ext.openapi import OpenAPI
 
   app = dyne.App()
+
+  db = Alchemical(app)
   api = OpenAPI(app, description=description)
 
   @app.route("/update-price/{id}", methods=["PATCH"])
@@ -1063,12 +1484,13 @@ In a production endpoint, you will typically use all three decorators together t
       404: "Book not found"
   })
   async def update_book_price(req, resp, id, *, data):
-      book = session.query(Book).get(id)
+      session = await req.db
+      book = await session.scalar(Book.select().filter_by(id=id))
       if not book:
           abort(404)
   
       book.price = data.price
-      session.commit()
+      await session.commit()
 
       # The updated 'book' object is serialized back to the client
       resp.obj = book
@@ -1792,87 +2214,3 @@ Note:
 * By default, all hostnames are allowed.
 * Wildcard domains such as ``*.example.com`` are supported.
 * To allow any hostname use ``allowed_hosts=["*"]``.
-
-
-Configuration
---------------
-
-Dyne features a hybrid configuration system that is "Zero-Config" by default but highly customizable when needed. 
-
-
-Automatic Discovery
-^^^^^^^^^^^^^^^^^^^
-
-Dyne automatically looks for a file named ``.env`` in your current working directory (CWD) upon initialization. If found, these variables are loaded as defaults.
-
-.. code-block:: python
-
-    from dyne import App
-
-    # If a .env exists in your folder, it is loaded automatically!
-    app = App()
-    print(app.config.DATABASE_URL)
-
-Manual Initialization
-^^^^^^^^^^^^^^^^^^^^^
-
-You can override the discovery behavior or add prefixes to your environment lookups.
-
-.. code-block:: python
-
-    app = App(
-        env_file=".env.production", # Use a specific file instead of discovery
-        env_prefix="DYNE_",         # Only look for vars starting with DYNE_
-        encoding="utf-8"            # Specify file encoding
-    )
-
-From Python Objects
-^^^^^^^^^^^^^^^^^^^
-
-You can seed your configuration using a class or module. Only **UPPERCASE** attributes are imported.
-
-.. code-block:: python
-
-    class DevelopmentConfig:
-        PORT = 5042
-        DEBUG = True
-
-    app.config.from_object(DevelopmentConfig)
-
-
-Resolution Hierarchy
-^^^^^^^^^^^^^^^^^^^^
-
-When you access a configuration key, Dyne searches in this specific order to ensure production environments can always override local settings:
-
-1. **OS Environment**: System variables (e.g., set via ``export`` or Docker).
-2. **Internal Store**: Values from the automatically discovered ``.env`` or an explicit ``env_file``.
-3. **Python Objects**: Values seeded via ``app.config.from_object()``.
-4. **Defaults**: The fallback value provided in ``app.config.get(key, default=...)``.
-
-Type Casting
-^^^^^^^^^^^^
-
-Because environment variables are always strings, Dyne provides a casting engine to prevent "stringly-typed" bugs.
-
-.. code-block:: python
-
-    # Automatically converts "true", "1", "yes" to True
-    debug = app.config.get("DEBUG", cast=bool)
-
-    # Converts string "8080" to integer 8080
-    port = app.config.get("PORT", cast=int, default=8000)
-
-Configuration in Routes
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Access your settings anywhere in your application via the ``request.app`` reference.
-
-.. code-block:: python
-
-    @app.route("/status")
-    async def status(req, resp):
-        if req.app.config.DEBUG:
-            resp.media = {"status": "debug-mode", "db": req.app.config.DATABASE_URL}
-        else:
-            resp.media = {"status": "production"}

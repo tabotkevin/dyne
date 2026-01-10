@@ -1,12 +1,12 @@
 from pydantic import BaseModel, ConfigDict
 from pydantic.fields import Field
-from sqlalchemy import Column, Float, Integer, String, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import Column, Float, Integer, String
 
 import dyne
 from dyne.exceptions import abort
 from dyne.ext.auth import authenticate
 from dyne.ext.auth.backends import BasicAuth
+from dyne.ext.db.alchemical import Alchemical, Model
 from dyne.ext.io.pydantic import expect, input, output, webhook
 from dyne.ext.io.pydantic.fields import FileField
 from dyne.ext.openapi import OpenAPI
@@ -27,8 +27,29 @@ For further inquiries or support, please contact support@example.com.
 """
 
 
+class Book(Model):
+    __tablename__ = "books"
+    id = Column(Integer, primary_key=True)
+    price = Column(Float)
+    title = Column(String)
+    cover = Column(String, nullable=True)
+
+
+class Config:
+    ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
 app = dyne.App()
+
+app.config.from_object(Config)
+
+db = Alchemical(app)
 api = OpenAPI(app, description=description)
+
+
+@app.on_event("startup")
+async def setup_db():
+    await db.create_all()
 
 
 users = dict(john="password", admin="password123")
@@ -55,35 +76,6 @@ async def error_handler(req, resp, status_code=401):
 @basic_auth.get_user_roles
 async def get_user_roles(user):
     return roles.get(user)
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-# An SQLAlchemy model
-class Book(Base):
-    __tablename__ = "books"
-    id = Column(Integer, primary_key=True)
-    price = Column(Float)
-    title = Column(String)
-    cover = Column(String, nullable=True)
-
-
-# Create tables in the database
-engine = create_engine("sqlite:///db", connect_args={"check_same_thread": False})
-Base.metadata.create_all(engine)
-
-
-# Create a session
-Session = sessionmaker(bind=engine)
-session = Session()
-
-book1 = Book(price=9.99, title="Harry Potter")
-book2 = Book(price=10.99, title="Pirates of the sea")
-session.add(book1)
-session.add(book2)
-session.commit()
 
 
 class BookSchema(BaseModel):
@@ -144,9 +136,10 @@ async def create(req, resp, *, data):
     image = data.pop("image")
     await image.asave(image.filename)  # image already validated for extension and size
 
+    session = await req.db
     book = Book(**data, cover=image.filename)
     session.add(book)
-    session.commit()
+    await session.commit()
 
     resp.obj = book
 
@@ -157,7 +150,8 @@ async def create(req, resp, *, data):
 async def book(req, resp, *, id):
     """Get a book"""
 
-    resp.obj = session.query(Book).filter_by(id=id).first()
+    session = await req.db
+    resp.obj = await session.scalar(Book.select().filter_by(id=id))
 
 
 @app.route("/update-price/{id}", methods=["PATCH"])
@@ -173,12 +167,14 @@ async def book(req, resp, *, id):
 )
 async def update_book_price(req, resp, id, *, data):
     """Update bok price."""
-    book = session.query(Book).get(id)
+
+    session = await req.db
+    book = await session.scalar(Book.select().filter_by(id=id))
     if not book:
         abort(404)
 
     book.price = data["price"]
-    session.commit()
+    await session.commit()
 
     resp.obj = book
 
@@ -189,7 +185,10 @@ async def update_book_price(req, resp, id, *, data):
 async def all_books(req, resp):
     """Get all books"""
 
-    resp.obj = session.query(Book)
+    session = await req.db
+    query = await session.scalars(Book.select())
+
+    resp.obj = query.all()
 
 
 if __name__ == "__main__":

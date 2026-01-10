@@ -86,7 +86,12 @@ graphql_strawberry = ["dyne[graphql,strawberry]"]
 # GraphQL with Graphene
 graphql_graphene = ["dyne[graphql,graphene]"]
 
-full = ["dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,http]"]
+# SQLAlchemy with Alchemical
+sqlalchemy = ["alchemical>=1.0.2", "aiosqlite>=0.22.1", "greenlet>=3.3.0"]
+
+full = [
+  "dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,http, sqlalchemy]",
+]
 
 
 [build-system]
