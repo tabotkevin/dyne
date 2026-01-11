@@ -16,6 +16,7 @@ Dyne brings simplicity and elegance to modern application and API development, w
 * **Type-Casted Configuration**: First-class configuration with automatic casting and validation for environment variables and application settings.
 * **GraphQL Support**: Native integration with ``Strawberry`` and ``Graphene`` for building GraphQL APIs alongside REST endpoints.
 * **Database Integration**: Native SQLAlchemy support powered by ``Alchemical``, offering async-first, request-scoped session management with minimal configuration.
+* **Advanced File Uploads**: Robust file handling via a configurable ``FileField``, enabling seamless binary data validation and storage integration for both ``Pydantic`` and ``Marshmallow`` schemas.
 
 
 Here's how you can get started:
@@ -1041,6 +1042,368 @@ If a route raises an exception:
 No session leaks occur between requests.
 
 
+CRUDMixin (Active Record Utilities)
+-----------------------------------
+
+``CRUDMixin`` is an optional Active Record–style helper for Alchemical models.
+It provides small, explicit CRUD utilities while remaining fully compatible
+with SQLAlchemy’s unit-of-work pattern.
+
+This mixin is designed to improve developer ergonomics without hiding
+SQLAlchemy behavior.
+
+Overview
+^^^^^^^^
+
+``CRUDMixin`` adds convenience helpers for common operations:
+
+* Creating records
+* Fetching records
+* Updating records
+* Deleting records
+
+All operations are asynchronous and require an active database session
+managed by Alchemical.
+
+Session Requirement
+^^^^^^^^^^^^^^^^^^^
+
+All ``CRUDMixin`` operations require an active request-scoped session.
+
+Before calling any CRUD helper, a session **must** be initialized:
+
+.. code-block:: python
+
+  await req.db
+
+If no active session is available, CRUD operations will raise
+``RuntimeError``.
+
+Instance Methods
+^^^^^^^^^^^^^^^^
+
+save()
+"""""
+
+Adds the current instance to the active session and flushes it.
+
+.. code-block:: python
+
+  user = User(name="Dyne")
+  await user.save()
+
+Returns the persisted instance.
+
+patch(**kwargs)
+""""""""""""""""
+
+Updates one or more attributes on the model and persists the changes.
+
+.. code-block:: python
+
+  await user.patch(name="Updated Name", role="admin")
+
+Only attributes that already exist on the model are updated.
+
+destroy()
+"""""""""
+
+Deletes the current instance and flushes the session.
+
+.. code-block:: python
+
+  await user.destroy()
+
+Class Methods
+^^^^^^^^^^^^^
+
+create(**kwargs)
+""""""""""""""""
+
+Creates, saves, and returns a new instance.
+
+.. code-block:: python
+
+  user = await User.create(name="New User")
+
+all()
+"""""
+
+Fetches all records for the model.
+
+.. code-block:: python
+
+  users = await User.all()
+
+Returns a sequence of model instances.
+
+find(**kwargs)
+""""""""""""""
+
+Fetches a single record matching the given criteria.
+
+.. code-block:: python
+
+  user = await User.find(email="test@example.com")
+
+Returns the first matching record or `None`.
+
+Usage Example
+^^^^^^^^^^^^^
+
+Model definition:
+
+.. code-block:: python
+
+  class User(CRUDMixin, Model):
+      id: Mapped[int] = mapped_column(primary_key=True)
+      name: Mapped[str] = mapped_column()
+
+Create a record:
+
+.. code-block:: python
+
+  @app.route("/users", methods=["POST"])
+  async def create_user(req, resp):
+      await req.db
+      user = await User.create(name="Dyne User")
+      resp.media = {"id": user.id}
+
+Update a record:
+
+.. code-block:: python
+
+  @app.route("/user/{id}/promote", methods=["POST"])
+  async def promote_user(req, resp, id):
+      await req.db
+
+      user = await User.find(id=int(id))
+      if not user:
+          resp.status_code = 404
+          return
+
+      await user.patch(role="admin")
+      resp.media = {"status": "promoted"}
+
+Design Notes
+^^^^^^^^^^^^
+
+`CRUDMixin` is intentionally minimal:
+
+* No implicit commits
+* No automatic session creation
+* No hidden queries
+
+For complex queries or bulk operations, use SQLAlchemy’s `select()`
+constructs directly.
+
+Error Handling
+^^^^^^^^^^^^^^
+
+If a CRUD method is called without an active session, a
+`RuntimeError` is raised:
+
+.. code-block:: text
+
+  RuntimeError: No active database session. Did you await req.db?
+
+This behavior is intentional and helps surface configuration issues early.
+
+Summary
+^^^^^^^
+
+* Optional Active Record helpers
+* Async-first and request-scoped
+* Compatible with SQLAlchemy’s unit-of-work model
+* No framework lock-in
+
+`CRUDMixin` is best used for simple workflows where clarity and brevity
+matter.
+
+
+
+Transaction Decorator
+---------------------
+
+
+Dyne’s Alchemical integration provides a ``@db.transaction`` decorator to
+simplify transactional database workflows while keeping full control over
+commit and rollback behavior.
+
+The decorator automatically manages the database transaction lifecycle,
+removing the need to manually open sessions or explicitly call
+``session.commit()`` inside your endpoints.
+
+Overview
+^^^^^^^^
+
+When applied to an async endpoint or handler, ``@db.transaction``:
+
+* Lazily initializes the database session
+* Commits the transaction on successful completion
+* Rolls back the transaction if an exception is raised
+* Prevents nested commits when already inside a transaction
+
+This results in cleaner, more readable endpoints with fewer failure points.
+
+Basic Usage
+^^^^^^^^^^^
+
+Without ``@transaction``, database operations are more verbose and error-prone:
+
+.. code-block:: python
+
+   @app.route("/create", methods=["POST"])
+   async def create(req, resp):
+       """Create book"""
+
+       data = req.media()
+
+       session = await req.db
+       book = await Book.create(**data)
+       await session.commit()
+
+       resp.media = {"id": book.id, "title": book.title, "price": book.price}
+
+
+Using ``@db.transaction``, the same endpoint becomes:
+
+.. code-block:: python
+
+   @app.route("/create", methods=["POST"])
+   @db.transaction
+   async def create(req, resp):
+       """Create book"""
+
+       data = req.media()
+       book = await Book.create(**data)
+
+       resp.media = {"id": book.id, "title": book.title, "price": book.price}
+
+Notice that:
+
+* ``await req.db`` is no longer required
+* No explicit ``commit()`` call is needed
+* The transaction is automatically committed on success
+
+Updating Records
+^^^^^^^^^^^^^^^^
+
+Without the transaction decorator:
+
+.. code-block:: python
+
+   @app.route("/update-price/{id}", methods=["PATCH"])
+   async def update_book_price(req, resp, id):
+       """Update book price."""
+
+       data = req.media()
+       session = await req.db
+
+       book = await Book.get(id)
+       if not book:
+           abort(404)
+
+       await book.modify(**data)
+       await session.commit()
+
+       resp.status_code = 201
+       resp.media = {"id": book.id, "title": book.title, "price": book.price}
+
+With ``@db.transaction``:
+
+.. code-block:: python
+
+   @app.route("/update-price/{id}", methods=["PATCH"])
+   @db.transaction
+   async def update_book_price(req, resp, id):
+       """Update book price."""
+
+       data = req.media()
+       book = await Book.get(id)
+       if not book:
+           abort(404)
+
+       await book.patch(**data)
+
+       resp.status_code = 201
+       resp.media = {"id": book.id, "title": book.title, "price": book.price}
+
+Nested Transactions
+^^^^^^^^^^^^^^^^^^^
+
+The ``@transaction`` decorator is safe to use in nested contexts.
+
+If a session is already inside an active transaction (for example, when
+`@transaction` is applied at a higher level or when middleware has already
+opened one), the decorator will not create a new transaction.
+
+In this case, the decorated function executes within the existing transaction
+scope, preventing double commits or premature rollbacks.
+
+``@transaction`` vs Autocommit 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Although both approaches aim to reduce boilerplate, they serve different needs.
+
+Autocommit
+""""""""""
+
+Autocommit is enabled at the middleware level and applies to **every request**.
+
+* Commits automatically at the end of each request
+* Rolls back on unhandled exceptions
+* Useful for simple CRUD-heavy applications
+* Applies globally and implicitly
+
+However, autocommit:
+
+* Runs even for read-only endpoints
+* Offers less control over transaction boundaries
+* Makes it harder to reason about complex flows
+
+``@db.transaction``
+"""""""""""""""""""
+
+The ``@transaction`` decorator is **explicit and scoped**.
+
+* Applied only where needed
+* Commits only when the decorated function succeeds
+* Rolls back immediately on failure
+* Ideal for write-heavy or critical operations
+
+Recommended Usage
+^^^^^^^^^^^^^^^^^
+
+Use ``@db.transaction`` when:
+
+* Performing writes
+* You want explicit transactional boundaries
+* You want minimal endpoint verbosity
+* You need safe composition with domain logic
+
+Use autocommit when:
+
+* Most endpoints perform simple writes
+* You prefer implicit behavior
+* You do not need fine-grained transaction control
+
+.. note::
+
+   ``@db.transaction`` and ``ALCHEMICAL_AUTOCOMMIT`` should not be used together.
+
+   When ``@db.transaction`` is applied, it becomes the authoritative transaction
+   boundary and manages commits explicitly using SQLAlchemy’s transaction API.
+
+Summary
+^^^^^^^
+
+The ``@db.transaction`` decorator provides a clean, explicit, and safe way to
+manage database transactions in Dyne applications. It reduces boilerplate,
+prevents common transactional bugs, and keeps business logic focused on intent
+rather than infrastructure.
+
+
 Request Validation
 ------------------
 
@@ -1250,7 +1613,7 @@ To serialize using Marshmallow, import the decorator from ``dyne.ext.io.marshmal
     import dyne
 
     class Config:
-        ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+        ALCHEMICAL_DATABASE_URL = "sqlite:///app.db"
 
     app = dyne.App()
     app.config.from_object(Config)
@@ -1860,8 +2223,9 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
     from dyne.ext.auth.backends import BasicAuth
     from dyne.ext.io.marshmallow import input, output, expect
     from dyne.ext.io.marshmallow.fields import FileField
+    from dyne.ext.db.alchemical import Alchemical, CRUDMixin, Model
 
-    class Book(Base):  # SQLAlchemy Model
+    class Book(CRUDMixin, Model):  # SQLAlchemy Model
         __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
@@ -1890,7 +2254,13 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
     **Support:** `support@example.com`
     """
 
+    class Config:
+        ALCHEMICAL_DATABASE_URL = "sqlite:///app.db"
+
     app = dyne.App()
+    app.config.from_object(Config)
+
+    db = Alchemical(app)
     api = OpenAPI(app, description=description)
 
     users = dict(john="password", admin="password123")
@@ -1917,6 +2287,7 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
     @input(BookCreateSchema, location="form")
     @output(BookSchema, status_code=201)
     @expect({401: "Unauthorized", 400: "Invalid file format"})
+    @db.transaction
     async def create_book(req, resp, *, data):
         """
         Create a new Book
@@ -1928,9 +2299,7 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
         await image.asave(f"uploads/{image.filename}") # The image is already validated for extension and size.
 
 
-        book = Book(**data, cover_url=image.filename)
-        session.add(book)
-        session.commit()
+        book = await Book.create(**data, cover=image.filename)
 
         resp.obj = book
 

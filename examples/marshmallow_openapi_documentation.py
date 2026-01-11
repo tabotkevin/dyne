@@ -165,7 +165,7 @@ async def book(req, resp, *, id):
     }
 )
 async def update_book_price(req, resp, id, *, data):
-    """Update bok price."""
+    """Update book price."""
     session = await req.db
     book = await session.scalar(Book.select().filter_by(id=id))
     if not book:
