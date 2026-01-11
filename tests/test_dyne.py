@@ -1,5 +1,4 @@
 import io
-import os
 import random
 import string
 from http import HTTPStatus
@@ -8,8 +7,7 @@ import pytest
 import yaml
 from marshmallow import Schema, fields
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Column, Float, Integer, String, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import Column, Float, Integer, String
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.testclient import TestClient as StarletteTestClient
 
@@ -975,6 +973,70 @@ def test_route_without_endpoint(app):
     assert route.endpoint_name == "_static_response"
 
 
+def test_endpoint_request_methods(app):
+    @app.route("/{greeting}")
+    async def greet(req, resp, *, greeting):  # defaults to get.
+        resp.text = f"{greeting}, world!"
+
+    @app.route("/me/{greeting}", methods=["POST"])
+    async def greet_me(req, resp, *, greeting):
+        resp.text = f"POST - {greeting}, world!"
+
+    @app.route("/no/{greeting}")
+    class NoGreeting:
+        pass
+
+    @app.route("/person/{greeting}")
+    class GreetingResource:
+        def on_get(self, req, resp, *, greeting):
+            resp.text = f"GET person - {greeting}, world!"
+            resp.headers.update({"X-Life": "41"})
+            resp.status_code = HTTPStatus.CREATED
+
+        def on_post(self, req, resp, *, greeting):
+            resp.text = f"POST person - {greeting}, world!"
+            resp.headers.update({"X-Life": "42"})
+
+        def on_request(self, req, resp, *, greeting):  # any request method.
+            resp.text = f"any person - {greeting}, world!"
+            resp.headers.update({"X-Life": "43"})
+
+    resp = app.client.get("http://;/Hello")
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.text == "Hello, world!"
+
+    resp = app.client.post("http://;/Hello")
+    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+
+    resp = app.client.get("http://;/me/Hey")
+    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+
+    resp = app.client.post("http://;/me/Hey")
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.text == "POST - Hey, world!"
+
+    resp = app.client.get("http://;/no/Hello")
+    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+
+    resp = app.client.post("http://;/no/Hello")
+    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+
+    resp = app.client.get("http://;/person/Hi")
+    assert resp.text == "GET person - Hi, world!"
+    assert resp.headers["X-Life"] == "41"
+    assert resp.status_code == HTTPStatus.CREATED
+
+    resp = app.client.post("http://;/person/Hi")
+    assert resp.text == "POST person - Hi, world!"
+    assert resp.headers["X-Life"] == "42"
+    assert resp.status_code == HTTPStatus.OK
+
+    resp = app.client.put("http://;/person/Hi")
+    assert resp.text == "any person - Hi, world!"
+    assert resp.headers["X-Life"] == "43"
+    assert resp.status_code == HTTPStatus.OK
+
+
 def test_pydantic_input_request_validation(app):
     from pydantic import AliasGenerator, BaseModel, ConfigDict
 
@@ -1186,96 +1248,28 @@ def test_marshmallow_input_request_validation(app):
     }
 
 
-def test_endpoint_request_methods(app):
-    @app.route("/{greeting}")
-    async def greet(req, resp, *, greeting):  # defaults to get.
-        resp.text = f"{greeting}, world!"
-
-    @app.route("/me/{greeting}", methods=["POST"])
-    async def greet_me(req, resp, *, greeting):
-        resp.text = f"POST - {greeting}, world!"
-
-    @app.route("/no/{greeting}")
-    class NoGreeting:
-        pass
-
-    @app.route("/person/{greeting}")
-    class GreetingResource:
-        def on_get(self, req, resp, *, greeting):
-            resp.text = f"GET person - {greeting}, world!"
-            resp.headers.update({"X-Life": "41"})
-            resp.status_code = HTTPStatus.CREATED
-
-        def on_post(self, req, resp, *, greeting):
-            resp.text = f"POST person - {greeting}, world!"
-            resp.headers.update({"X-Life": "42"})
-
-        def on_request(self, req, resp, *, greeting):  # any request method.
-            resp.text = f"any person - {greeting}, world!"
-            resp.headers.update({"X-Life": "43"})
-
-    resp = app.client.get("http://;/Hello")
-    assert resp.status_code == HTTPStatus.OK
-    assert resp.text == "Hello, world!"
-
-    resp = app.client.post("http://;/Hello")
-    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
-
-    resp = app.client.get("http://;/me/Hey")
-    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
-
-    resp = app.client.post("http://;/me/Hey")
-    assert resp.status_code == HTTPStatus.OK
-    assert resp.text == "POST - Hey, world!"
-
-    resp = app.client.get("http://;/no/Hello")
-    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
-
-    resp = app.client.post("http://;/no/Hello")
-    assert resp.status_code == HTTPStatus.METHOD_NOT_ALLOWED
-
-    resp = app.client.get("http://;/person/Hi")
-    assert resp.text == "GET person - Hi, world!"
-    assert resp.headers["X-Life"] == "41"
-    assert resp.status_code == HTTPStatus.CREATED
-
-    resp = app.client.post("http://;/person/Hi")
-    assert resp.text == "POST person - Hi, world!"
-    assert resp.headers["X-Life"] == "42"
-    assert resp.status_code == HTTPStatus.OK
-
-    resp = app.client.put("http://;/person/Hi")
-    assert resp.text == "any person - Hi, world!"
-    assert resp.headers["X-Life"] == "43"
-    assert resp.status_code == HTTPStatus.OK
-
-
-def test_pydantic_response_schema_serialization(app):
+@pytest.mark.asyncio
+async def test_pydantic_response_schema_serialization(app):
+    from dyne.ext.db.alchemical import Alchemical, Model
     from dyne.ext.io.pydantic import input, output
 
-    class Base(DeclarativeBase):
-        pass
-
-    # Define an example SQLAlchemy model
-    class Book(Base):
+    class Book(Model):
         __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
         title = Column(String)
 
-    # Create tables in the database
-    engine = create_engine("sqlite:///py.db", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(engine)
+    class Config:
+        ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-    # Create a session
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    app.config.from_object(Config)
+    db = Alchemical(app)
 
-    book1 = Book(price=9.99, title="Harry Potter")
-    book2 = Book(price=10.99, title="Pirates of the sea")
-    session.add(book1)
-    session.add(book2)
-    session.commit()
+    @app.on_event("startup")
+    async def setup_db():
+        await db.create_all()
+
+    await app.router.trigger_event("startup")
 
     class BaseBookSchema(BaseModel):
         price: float
@@ -1293,9 +1287,10 @@ def test_pydantic_response_schema_serialization(app):
     async def create_book(req, resp, *, data):
         """Create book"""
 
+        session = await req.db
         book = Book(**data)
         session.add(book)
-        session.commit()
+        await session.commit()
 
         resp.obj = book
 
@@ -1303,55 +1298,49 @@ def test_pydantic_response_schema_serialization(app):
     @output(BookOut)
     async def all_books(req, resp):
         """Get all books"""
+        session = await req.db
+        query = await session.scalars(Book.select())
 
-        resp.obj = session.query(Book)
+        resp.obj = query.all()
 
-    data = {"title": "Learning dyne", "price": 39.99}
+    data = {"title": "Learning Dyne", "price": 39.99}
     response = app.client.post(app.url_for(create_book), json=data)
     assert response.status_code == HTTPStatus.OK
     assert response.json()["price"] == 39.99
-    assert response.json()["title"] == "Learning dyne"
+    assert response.json()["title"] == "Learning Dyne"
 
     response = app.client.get(app.url_for(all_books))
     assert response.status_code == HTTPStatus.OK
     rs = response.json()
     prices = sorted([book["price"] for book in rs])
     titles = sorted([book["title"] for book in rs])
-    assert 9.99 in prices
-    assert 10.99 in prices
     assert 39.99 in prices
-    assert "Harry Potter" in titles
-    assert "Learning dyne" in titles
-    assert "Pirates of the sea" in titles
-    os.remove("py.db")
+    assert "Learning Dyne" in titles
 
 
-def test_marshmallow_response_schema_serialization(app):
+@pytest.mark.asyncio
+async def test_marshmallow_response_schema_serialization(app):
+    from dyne.ext.db.alchemical import Alchemical, Model
     from dyne.ext.io.marshmallow import input, output
 
-    class Base(DeclarativeBase):
-        pass
+    class Booky(Model):
+        __tablename__ = "marsh_books"
 
-    # Define an example SQLAlchemy model
-    class Book(Base):
-        __tablename__ = "books"
         id = Column(Integer, primary_key=True)
         price = Column(Float)
         title = Column(String)
 
-    # Create tables in the database
-    engine = create_engine("sqlite:///ma.db", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(engine)
+    class Config:
+        ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-    # Create a session
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    app.config.from_object(Config)
+    db = Alchemical(app)
 
-    book1 = Book(price=9.99, title="Harry Potter")
-    book2 = Book(price=10.99, title="Pirates of the sea")
-    session.add(book1)
-    session.add(book2)
-    session.commit()
+    @app.on_event("startup")
+    async def setup_db():
+        await db.create_all()
+
+    await app.router.trigger_event("startup")
 
     class BookSchema(Schema):
         id = fields.Integer(dump_only=True)
@@ -1359,7 +1348,7 @@ def test_marshmallow_response_schema_serialization(app):
         title = fields.Str()
 
         class Meta:
-            model = Book
+            model = Booky
 
     @app.route("/create", methods=["POST"])
     @input(BookSchema)
@@ -1367,9 +1356,10 @@ def test_marshmallow_response_schema_serialization(app):
     async def create_book(req, resp, *, data):
         """Create book"""
 
-        book = Book(**data)
+        session = await req.db
+        book = Booky(**data)
         session.add(book)
-        session.commit()
+        await session.commit()
 
         resp.obj = book
 
@@ -1378,7 +1368,10 @@ def test_marshmallow_response_schema_serialization(app):
     async def all_books(req, resp):
         """Get all books"""
 
-        resp.obj = session.query(Book)
+        session = await req.db
+        query = await session.scalars(Booky.select())
+
+        resp.obj = query.all()
 
     data = {"title": "Python Programming", "price": 11.99}
     response = app.client.post(app.url_for(create_book), json=data)
@@ -1391,10 +1384,5 @@ def test_marshmallow_response_schema_serialization(app):
     rs = response.json()
     prices = sorted([book["price"] for book in rs])
     titles = sorted([book["title"] for book in rs])
-    assert 9.99 in prices
-    assert 10.99 in prices
     assert 11.99 in prices
-    assert "Harry Potter" in titles
-    assert "Pirates of the sea" in titles
     assert "Python Programming" in titles
-    os.remove("ma.db")

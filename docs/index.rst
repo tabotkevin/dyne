@@ -32,6 +32,7 @@ A light weight Python async framework with batteries included.
     from dyne.ext.openapi import OpenAPI
 
     app = dyne.App()
+    db = Alchemical(app)
     api = OpenAPI(app, description=description)
     basic_auth = BasicAuth()
 
@@ -41,6 +42,7 @@ A light weight Python async framework with batteries included.
     @input(BookCreateSchema, location="form")
     @output(BookSchema, status_code=201)
     @expect({401: "Unauthorized", 400: "Invalid file format"})
+    @db.transaction
     async def create_book(req, resp, *, data):
         """
         Create a new Book
@@ -52,9 +54,7 @@ A light weight Python async framework with batteries included.
         await image.asave(f"uploads/{image.filename}") # The image is already validated for extension and size.
 
 
-        book = Book(**data, cover=image.filename)
-        session.add(book)
-        session.commit()
+        book = await Book.create(**data, cover=image.filename)
 
         resp.obj = book
 
@@ -64,17 +64,23 @@ Dyne delivers a production-ready ASGI foundation out of the box. It features an 
 Features
 --------
 
-* **A pleasant App**: Designed for developer happiness with a clean, intuitive experience.
-* **Native ASGI Support**: Built on the `ASGI <https://asgi.readthedocs.io>`_ standard for high-performance, asynchronous web services.
-* **Intuitive Routing**: Use familiar `f-string syntax <https://docs.python.org/3/whatsnew/3.6.html#pep-498-formatted-string-literals>`_ for expressive, readable route declarations.
-* **Production-Ready Config**: Hybrid configuration system with `.env` auto-discovery, Starlette-inspired type casting, and environment overrides.
-* **Seamless Documentation**: Full, self-generating **OpenAPI** documentation with interactive UI and support for `Pydantic` or `Marshmallow` schemas.
-* **Flexible Views**: Support for function-based or class-based views (without mandatory inheritance) and a mutable response object that simplifies view logic.
-* **Bidirectional Communication**: Native support for **WebSockets** and **GraphQL** (including *GraphiQL* integration).
-* **Request & Response Life-cycle**: Advanced decorators for `@input` validation, `@output` serialization, `@expect` headers, and `@webhook` callback documentation.
-* **Background Tasks**: Built-in support for offloading long-running operations to a `ThreadPoolExecutor`.
-* **Extensible Architecture**: Mount any existing ASGI application at a subroute and enjoy native single-page webapp (SPA) support.
-* **Integrated Security**: First-class support for `BasicAuth`, `TokenAuth`, and `DigestAuth` authentication schemes.
+
+* **A built in testing client** that uses the actual Requests you know and love.
+* **A Pleasant Application Experience**: Designed for developer happiness with a clean, intuitive, and consistent API.
+* **Native ASGI Foundation**: Built on the `ASGI <https://asgi.readthedocs.io>`_ standard for high-performance, fully asynchronous applications.
+* **Expressive Routing**: Declare routes using familiar `f-string syntax <https://docs.python.org/3/whatsnew/3.6.html#pep-498-formatted-string-literals>`_, improving readability and maintainability.
+* **First-Class Configuration**: Strongly typed, auto-casted configuration with `.env` auto-discovery, environment variable overrides, and validation at startup.
+* **Database Integration**: First-class ``SQLAlchemy`` support powered by ``Alchemical``, providing clean session management, async-friendly patterns, and declarative configuration.
+* **Seamless API Documentation**: Fully self-generated ``OpenAPI`` documentation with an interactive UI and native support for both `Pydantic` and `Marshmallow` schemas.
+* **Flexible View Layer**: Support for function-based or class-based views (without mandatory inheritance) and a mutable response object that simplifies response handling.
+* **GraphQL Support**: Native integration with ``Strawberry`` and ``Graphene``, including ``GraphiQL`` for interactive schema exploration.
+* **Webhooks & Async Events**: First-class webhook definition and documentation via the ``@webhook`` decorator, enabling clearly defined outbound callbacks and event-driven workflows.
+* **Request & Response Lifecycle**: Powerful decorators such as ``@input`` for validation, ``@output`` for serialization, and ``@expect`` for enforcing headers, cookies, and request metadata.
+* **Bidirectional Communication**: Built-in support for ``WebSockets`` alongside traditional HTTP and GraphQL endpoints.
+* **Background Tasks**: Easily offload long-running or blocking work using a built-in `ThreadPoolExecutor`.
+* **Extensible Architecture**: Mount any ASGI-compatible application at a subroute and serve single-page applications (SPAs) natively.
+* **Integrated Security**: First-class authentication support for `BasicAuth`, `TokenAuth`, and `DigestAuth`.
+* **Advanced File Uploads**: Robust file handling via a configurable ``FileField``, enabling seamless binary data validation and storage integration for both ``Pydantic`` and ``Marshmallow`` schemas.
 
 
 User Guides

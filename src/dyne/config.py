@@ -67,7 +67,13 @@ class Config(dict):
         if default is not None:
             return self._perform_cast(key, default, cast)
 
-        raise KeyError(f"Config '{full_key}' is missing, and has no default.")
+        return default
+
+    def require(self, key: str, cast: Callable[[Any], T] | None = None) -> Any:
+        value = self.get(key, cast)
+        if value is None:
+            raise RuntimeError(f"Missing required config: {key}")
+        return value
 
     def _perform_cast(
         self, key: str, value: Any, cast: Optional[Callable] = None
@@ -92,7 +98,7 @@ class Config(dict):
             )
 
     def __getattr__(self, key: str) -> Any:
-        try:
-            return self.get(key)
-        except KeyError:
+        value = self.get(key)
+        if value is None:
             raise AttributeError(f"Config has no attribute '{key}'")
+        return value

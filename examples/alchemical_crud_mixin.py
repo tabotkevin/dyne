@@ -1,15 +1,14 @@
-from pydantic import BaseModel, ConfigDict
-from pydantic.fields import Field
-from sqlalchemy import Column, Float, Integer, String
-
 import dyne
 from dyne.exceptions import abort
 from dyne.ext.auth import authenticate
 from dyne.ext.auth.backends import BasicAuth
-from dyne.ext.db.alchemical import Alchemical, Model
+from dyne.ext.db.alchemical import Alchemical, CRUDMixin, Model
 from dyne.ext.io.pydantic import expect, input, output, webhook
 from dyne.ext.io.pydantic.fields import FileField
 from dyne.ext.openapi import OpenAPI
+from pydantic import BaseModel, ConfigDict
+from pydantic.fields import Field
+from sqlalchemy import Column, Float, Integer, String
 
 description = """
 API Documentation
@@ -27,7 +26,7 @@ For further inquiries or support, please contact support@example.com.
 """
 
 
-class Book(Model):
+class Book(CRUDMixin, Model):
     __tablename__ = "books"
     id = Column(Integer, primary_key=True)
     price = Column(Float)
@@ -39,7 +38,7 @@ class Config:
     ALCHEMICAL_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
-app = dyne.App()
+app = dyne.App(debug=True)
 
 app.config.from_object(Config)
 
@@ -130,15 +129,39 @@ class InsufficientPermissionsSchema(BaseModel):
         ),
     }
 )
+@db.transaction
 async def create(req, resp, *, data):
     """Create book"""
 
     image = data.pop("image")
-    await image.asave(image.filename)  # image already validated for extension and size
+    await image.asave(image.filename)
+
+    book = await Book.create(**data, cover=image.filename)
+
+    resp.obj = book
+
+
+@app.route("/no_trans_create", methods=["POST"])
+@authenticate(basic_auth, role="user")
+@input(BookCreateSchema, location="form")
+@output(BookSchema)
+@expect(
+    {
+        401: InvalidTokenSchema,
+        403: (
+            InsufficientPermissionsSchema,
+            "Requires elevated administrative privileges",
+        ),
+    }
+)
+async def no_transaction_create(req, resp, *, data):
+    """Create book no transaction"""
+
+    image = data.pop("image")
+    await image.asave(image.filename)
 
     session = await req.db
-    book = Book(**data, cover=image.filename)
-    session.add(book)
+    book = await Book.create(**data, cover=image.filename)
     await session.commit()
 
     resp.obj = book
@@ -150,8 +173,8 @@ async def create(req, resp, *, data):
 async def book(req, resp, *, id):
     """Get a book"""
 
-    session = await req.db
-    resp.obj = await session.scalar(Book.select().filter_by(id=id))
+    await req.db
+    resp.obj = await Book.find(id=id)
 
 
 @app.route("/update-price/{id}", methods=["PATCH"])
@@ -165,15 +188,39 @@ async def book(req, resp, *, id):
         404: "Book not found",
     }
 )
+@db.transaction
 async def update_book_price(req, resp, id, *, data):
     """Update book price."""
 
-    session = await req.db
-    book = await session.scalar(Book.select().filter_by(id=id))
+    book = await Book.get(id)
     if not book:
         abort(404)
 
-    book.price = data["price"]
+    await book.patch(**data)
+
+    resp.obj = book
+
+
+@app.route("/no_trans_update-price/{id}", methods=["PATCH"])
+@webhook
+@authenticate(basic_auth, role="user")
+@input(PriceUpdateSchema)
+@output(BookSchema)
+@expect(
+    {
+        403: "Insufficient permissions",
+        404: "Book not found",
+    }
+)
+async def no_trans_update_book_price(req, resp, id, *, data):
+    """Update book price no transaction."""
+
+    session = await req.db
+    book = await Book.get(id)
+    if not book:
+        abort(404)
+
+    await book.patch(**data)
     await session.commit()
 
     resp.obj = book
@@ -185,10 +232,21 @@ async def update_book_price(req, resp, id, *, data):
 async def all_books(req, resp):
     """Get all books"""
 
-    session = await req.db
-    query = await session.scalars(Book.select())
+    await req.db
 
-    resp.obj = query.all()
+    resp.obj = await Book.all()
+
+
+@app.route("/books/{id}", methods=["DELETE"])
+@authenticate(basic_auth)
+@db.transaction
+async def deleting_book(req, resp, *, id):
+    """Delete a book"""
+
+    book = await Book.get(id)
+    await book.destroy()
+
+    resp.status_code = 204
 
 
 if __name__ == "__main__":

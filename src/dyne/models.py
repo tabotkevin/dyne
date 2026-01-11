@@ -192,6 +192,18 @@ class Request:
         return self._starlette.state
 
     @property
+    async def db(self):
+        get_session = getattr(self.state, "db", None)
+
+        if get_session is None:
+            raise RuntimeError(
+                "Alchemical session factory not found in request state. "
+                "Did you forget to call 'db.init_app(app)'?"
+            )
+
+        return await get_session()
+
+    @property
     async def encoding(self):
         """The encoding of the Request's body. Can be set, manually. Must be awaited."""
         # Use the user-set encoding first.
