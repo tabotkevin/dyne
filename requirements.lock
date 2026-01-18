@@ -19,6 +19,7 @@ alchemical==1.0.2
 annotated-types==0.7.0
     # via pydantic
 anyio==4.3.0
+    # via httpx
     # via starlette
     # via watchfiles
 apispec==6.9.0
@@ -26,6 +27,8 @@ apispec==6.9.0
 backports-datetime-fromisoformat==2.0.3
     # via marshmallow
 certifi==2025.11.12
+    # via httpcore
+    # via httpx
     # via requests
 chardet==5.2.0
     # via dyne
@@ -51,11 +54,17 @@ graphql-server==3.0.0
 greenlet==3.3.0
     # via dyne
 h11==0.14.0
+    # via httpcore
     # via uvicorn
+httpcore==1.0.8
+    # via httpx
 httptools==0.6.1
     # via uvicorn
+httpx==0.28.1
+    # via dyne
 idna==3.6
     # via anyio
+    # via httpx
     # via requests
 itsdangerous==2.1.2
     # via dyne
