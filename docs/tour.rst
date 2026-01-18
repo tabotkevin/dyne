@@ -684,9 +684,9 @@ You can override the discovery behavior or add prefixes to your environment look
 .. code-block:: python
 
     app = App(
-        env_file=".env.production", # Use a specific file instead of discovery
+        env_file=".env.production", # Use a specific file instead of discovery.
         env_prefix="DYNE_",         # Only look for vars starting with DYNE_
-        encoding="utf-8"            # Specify file encoding
+        encoding="utf-8"            # Specify file encoding.
     )
 
 From Python Objects
