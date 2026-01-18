@@ -2,8 +2,7 @@ import hashlib
 import hmac
 
 import dyne
-from dyne.ext.auth import authenticate
-from dyne.ext.auth.backends import BasicAuth, DigestAuth, MultiAuth, TokenAuth
+from dyne.ext.auth import BasicAuth, DigestAuth, MultiAuth, TokenAuth, authenticate
 
 app = dyne.App()
 

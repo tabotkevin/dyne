@@ -36,6 +36,15 @@ async def health(req, resp):
     resp.media = {"status": "ok"}
 
 
+@app.route("/users")
+async def list_users(req, resp):
+    session = await req.db
+    result = await session.execute(select(User))
+    users = result.scalars().all()
+
+    resp.media = [{"id": u.id, "username": u.username} for u in users]
+
+
 @app.route("/users", methods=["POST"])
 async def create_user(req, resp):
     data = await req.media()
@@ -51,15 +60,6 @@ async def create_user(req, resp):
 
     resp.status_code = 201
     resp.media = {"username": user.username, "id": user.id}
-
-
-@app.route("/all_users")
-async def list_users(req, resp):
-    session = await req.db
-    result = await session.execute(select(User))
-    users = result.scalars().all()
-
-    resp.media = [{"id": u.id, "username": u.username} for u in users]
 
 
 @app.route("/users/fail", methods=["POST"])

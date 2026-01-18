@@ -26,6 +26,10 @@ _CONVERTORS = {
 PARAM_RE = re.compile("{([a-zA-Z_][a-zA-Z0-9_]*)(:[a-zA-Z_][a-zA-Z0-9_]*)?}")
 
 
+def _normalize_methods(methods):
+    return tuple(m.upper() for m in methods)
+
+
 def compile_path(path):
     path_re = "^"
     param_convertors = {}
@@ -65,7 +69,7 @@ class Route(BaseRoute):
         self.route = route
         self.endpoint = endpoint
         self.before_request = before_request
-        self.methods = methods
+        self.methods = _normalize_methods(methods)
 
         self.path_re, self.param_convertors = compile_path(route)
 
@@ -128,7 +132,7 @@ class Route(BaseRoute):
                 if on_request is None:
                     abort(HTTPStatus.METHOD_NOT_ALLOWED)
         else:
-            if request.method not in [method.lower() for method in self.methods]:
+            if request.method.upper() not in self.methods:
                 abort(HTTPStatus.METHOD_NOT_ALLOWED)
             views.append(self.endpoint)
 
@@ -248,9 +252,19 @@ class Router:
             return
 
         if check_existing:
-            assert not self.routes or route not in (
-                item.route for item in self.routes
-            ), f"Route '{route}' already exists"
+            methods = _normalize_methods(methods)
+            new_methods = set(methods)
+
+            for existing in self.routes:
+                if existing.route != route:
+                    continue
+
+                existing_methods = set(existing.methods)
+                conflict = existing_methods & new_methods
+                if conflict:
+                    raise AssertionError(
+                        f"Route '{route}' already exists for methods: {sorted(conflict)}"
+                    )
 
         if default:
             self.default_endpoint = endpoint

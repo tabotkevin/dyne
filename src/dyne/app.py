@@ -33,6 +33,7 @@ class App:
     :param static_dir: The directory to use for static files. Will be created for you if it doesn't already exist.
     :param templates_dir: The directory to use for templates. Will be created for you if it doesn't already exist.
     :param auto_escape: If ``True``, HTML and XML templates will automatically be escaped.
+    :param application's secret_key or set `SECRET_KEY` in config.
     :param enable_hsts: If ``True``, send all responses to HTTPS URLs.
     :param env_file: Path to a config .env file to load.
     :param env_prefix: Prefix for environment variables (e.g., 'DYNE_').
@@ -58,9 +59,12 @@ class App:
         encoding: str = "utf-8",
         environ: MutableMapping[str, str] = os.environ,
     ):
+        self.config = Config(
+            env_file=env_file, env_prefix=env_prefix, encoding=encoding, environ=environ
+        )
+        self.secret_key = self.config.get("SECRET_KEY", default=secret_key)
+        self.middleware_stack = []
         self.background = BackgroundQueue()
-
-        self.secret_key = secret_key
 
         self.router = Router()
 
@@ -115,9 +119,6 @@ class App:
         self.client = (
             self.session()
         )  #: A Requests session that is connected to the ASGI app.
-        self.config = Config(
-            env_file=env_file, env_prefix=env_prefix, encoding=encoding, environ=environ
-        )
 
     @property
     def static_app(self):
@@ -134,7 +135,11 @@ class App:
         return decorator
 
     def add_middleware(self, middleware_cls, **middleware_config):
+        self.middleware_stack.append(middleware_cls)
         self.app = middleware_cls(self.app, **middleware_config)
+
+    def has_middleware(self, middleware_cls):
+        return middleware_cls in self.middleware_stack
 
     def path_matches_route(self, path):
         """Given a path portion of a URL, tests that it matches against any registered route.

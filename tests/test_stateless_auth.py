@@ -2,8 +2,7 @@ from http import HTTPStatus
 
 import httpx
 
-from dyne.ext.auth import authenticate
-from dyne.ext.auth.backends import BasicAuth, DigestAuth, MultiAuth, TokenAuth
+from dyne.ext.auth import BasicAuth, DigestAuth, MultiAuth, TokenAuth, authenticate
 
 users = dict(john="password", admin="password123")
 roles = {"john": "user", "admin": ["user", "admin"]}

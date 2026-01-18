@@ -124,8 +124,12 @@ class Request:
 
     @property
     def session(self):
-        """The session data, in dict form, from the Request."""
-        return self._starlette.session
+        """
+        The session data, in dict form.
+        Returns an empty dict if SessionMiddleware is missing or hasn't run.
+        """
+        # Access the underlying ASGI scope directly to avoid Starlette's AssertionError
+        return self._starlette.scope.get("session", {})
 
     @property
     def headers(self):
@@ -202,6 +206,14 @@ class Request:
             )
 
         return await get_session()
+
+    @property
+    def user(self):
+        return getattr(self.state, "user", None)
+
+    @property
+    def is_authenticated(self) -> bool:
+        return self.user is not None
 
     @property
     async def encoding(self):
@@ -367,6 +379,7 @@ class Response:
         max_age=None,
         secure=False,
         httponly=True,
+        samesite="lax",
     ):
         self.cookies[key] = value
         morsel = self.cookies[key]
@@ -378,8 +391,29 @@ class Response:
             morsel["domain"] = domain
         if max_age is not None:
             morsel["max-age"] = max_age
+        if samesite is not None:
+            morsel["samesite"] = samesite
         morsel["secure"] = secure
         morsel["httponly"] = httponly
+
+    def delete_cookie(
+        self,
+        key,
+        path="/",
+        domain=None,
+        secure=False,
+        httponly=True,
+    ):
+        self.set_cookie(
+            key,
+            value="",
+            path=path,
+            domain=domain,
+            max_age=0,
+            expires="Thu, 01 Jan 1970 00:00:00 GMT",
+            secure=secure,
+            httponly=httponly,
+        )
 
     def _prepare_cookies(self, starlette_response):
         cookie_header = (

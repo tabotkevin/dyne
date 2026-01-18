@@ -1221,10 +1221,8 @@ Summary
 matter.
 
 
-
 Transaction Decorator
 ---------------------
-
 
 Dyne’s Alchemical integration provides a ``@db.transaction`` decorator to
 simplify transactional database workflows while keeping full control over
@@ -1875,13 +1873,13 @@ In a production endpoint, you will typically use all three decorators together t
 .
 
 
-Authentication
-----------------
+Stateless Authentication
+------------------------
 
 
-Dyne provides a robust authentication system through its ``auth`` extension. By separating the **Backend** logic (how credentials are verified) from the **Decorator** (how the route is protected), Dyne allows for a highly flexible security architecture.
+Dyne provides a robust authentication system through its ``auth.stateless`` extension. By separating the **Backend** logic (how credentials are verified) from the **Decorator** (how the route is protected), Dyne allows for a highly flexible stateless security architecture.
 
-All authentication backends are located in ``dyne.ext.auth.backends``, while the protection decorator is in ``dyne.ext.auth``.
+All authentication backends are located in ``dyne.ext.auth.stateless.backends``, while the protection decorator is in ``dyne.ext.auth.stateless``. For brevity, both the backends and the decorator can be imported directly from ``dyne.ext.auth``
 
 The User Object
 ^^^^^^^^^^^^^^^
@@ -1903,8 +1901,7 @@ Once authenticated, this object is automatically attached to the request and can
 .. code-block:: python
 
     import dyne
-    from dyne.ext.auth import authenticate
-    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.auth import authenticate, BasicAuth
 
     app = dyne.App()
     users = dict(john="password", admin="password123")
@@ -1937,8 +1934,7 @@ Once authenticated, this object is automatically attached to the request and can
 
 .. code-block:: python
 
-    from dyne.ext.auth.backends import TokenAuth
-    from dyne.ext.auth import authenticate
+    from dyne.ext.auth import authenticate, TokenAuth
 
     token_auth = TokenAuth()
 
@@ -1968,7 +1964,7 @@ Once authenticated, this object is automatically attached to the request and can
 
 .. code-block:: python
 
-    from dyne.ext.auth.backends import DigestAuth
+    from dyne.ext.auth import authenticate, DigestAuth
 
     digest_auth = DigestAuth()
 
@@ -2005,7 +2001,7 @@ Storing plaintext passwords in a database is a security risk. You can instead st
 .. code-block:: python
 
     import hashlib
-    from dyne.ext.auth.backends import DigestAuth
+    from dyne.ext.auth import DigestAuth
 
     digest_auth = DigestAuth(realm="My App")
 
@@ -2065,7 +2061,7 @@ The ``MultiAuth`` backend allows you to support multiple authentication methods 
 
 .. code-block:: python
 
-    from dyne.ext.auth.backends import MultiAuth
+    from dyne.ext.auth import MultiAuth
 
     # Support Token and Basic and Digest authentication
     multi_auth = MultiAuth(digest_auth, token_auth, basic_auth)
@@ -2107,8 +2103,7 @@ Sample code using the ``basic_auth`` backends:
 
 .. code-block:: python
 
-    from dyne.ext.auth.backends import BasicAuth
-    from dyne.ext.auth import authenticate
+    from dyne.ext.auth import authenticate, BasicAuth
 
     basic_auth = BasicAuth()
 
@@ -2148,6 +2143,228 @@ When using RBAC, the client sends credentials normally. The server handles the p
     # Accessing admin-level route (will return 403 if roles don't match)
     http -a admin_user:password123 GET http://localhost:5042/system-settings
 
+
+
+Session Authentication
+----------------------
+
+
+The ``LoginManager`` provides a robust, session-based authentication system for Dyne. 
+It supports "Remember Me" functionality, flexible user loading, and complex 
+Role-Based Access Control (RBAC). This can accessed from `dyne.ext.auth.session`, but
+for brevity it can be imported directly from `dyne.ext.auth`.
+
+ It supports:
+
+* User session loading
+* Remember-me cookies
+* Login and logout flows
+* Role-based Authorization
+* Authentication hooks
+* Custom authentication failure handling
+* Middleware-based user injection
+
+Configuration
+^^^^^^^^^^^^^
+
+Initialize the manager with your application and optional configuration:
+
+.. code-block:: python
+
+    auth = LoginManager(
+        app, 
+        login_url="/login",
+        remember_me_duration=2592000,  # Optional 30 days default
+        user_id_attribute="id",  # Optional and defaults to `id` 
+    )
+
+The manager requires SECRET_KEY to be defined in app.config. This key is used to sign and verify remember-me cookies.
+By default, the user ID is taken from the ``id`` attribute. This can be customized via ``user_id_attribute``.
+
+User Loading
+^^^^^^^^^^^^
+
+You must tell the manager how to retrieve a user from your database using 
+the ``@user_loader`` decorator.
+
+.. code-block:: python
+
+    @auth.user_loader
+    async def load_user(user_id: str):
+        return await User.find(id=int(user_id))
+
+Must return a user object or `None`. The returned object **must** have an ``id`` attribute or the attribute set in ``user_id_attribute``. Both object attributes and dictionary keys are supported.
+
+Logging In
+^^^^^^^^^^
+
+To log a user in
+
+.. code-block:: python
+
+    await auth.login(req, resp, user, redirect_url="/dashboard")
+
+Enable remember-me support
+
+.. code-block:: python
+
+    await auth.login(req, resp, user, remember_me=True, redirect_url="/dashboard")
+
+This will:
+
+* Store the user ID in the session
+* Optionally set a signed remember-me cookie
+* The remember_me cookie expires after ``remember_me_duration`` seconds
+* Invoke ``on_login`` hooks
+
+
+Logging Out
+^^^^^^^^^^^
+
+To log out the current user
+.. code-block:: python
+
+    await auth.logout(req, resp)
+
+This clears:
+
+* Session user ID
+* Remember-me cookie
+* Cached request user
+
+
+Accessing the Current User
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The current user is stored on the request state
+
+.. code-block:: python
+
+    req.state.user
+
+The ``LoginMiddleware`` ensures the user is loaded before handlers execute and if no user is authenticated, this value is ``None``.
+
+Session Management
+^^^^^^^^^^^^^^^^^^
+
+To authenticate a user (e.g., after checking their password), use ``login()``. 
+To clear the session, use ``logout()``.
+
+.. code-block:: python
+
+    @app.route("/login", methods=["POST"])
+    async def login_route(req, resp):
+        user = await User.authenticate(req.media())
+        if user:
+            await auth.login(req, resp, user, remember_me=True, redirect_url="/dashboard")
+        ...
+
+    @app.route("/logout")
+    async def logout_route(req, resp):
+        await auth.logout(req, resp)
+        return resp.redirect("/")
+
+Access Control
+^^^^^^^^^^^^^^
+
+Protect routes using the ``@login_required`` decorator. If a user is not logged in, 
+they will be redirected to the ``login_url`` or receive a 401 response.
+
+.. code-block:: python
+
+    @app.route("/profile")
+    @auth.login_required
+    async def profile(req, resp):
+        return {"user": req.state.user.username}
+
+Role-Based Authorization (RBAC)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To use roles, register a role loader and pass requirements to the decorator.
+
+.. code-block:: python
+
+    @auth.get_user_roles
+    async def get_roles(user):
+        return [r.name for r in user.roles]
+
+    # Requires 'admin' OR 'editor'
+    @app.route("/post/edit")
+    @auth.login_required(role=["admin", "editor"])
+    async def edit(req, resp):
+        pass
+
+    # Requires 'admin' AND 'super_user'
+    @app.route("/system/reset")
+    @auth.login_required(role=[["admin", "super_user"]])
+    async def reset(req, resp):
+        pass
+
+Event Hooks
+^^^^^^^^^^^
+
+Trigger logic automatically during authentication events.
+
+.. code-block:: python
+
+    @auth.on_login
+    async def update_last_login(req, resp, user):
+        await user.update(last_login=datetime.now())
+
+    @auth.on_logout
+    async def log_logout(req, resp, user):
+        logger.info(f"User {user.id} logged out")
+
+Customizing Failure
+^^^^^^^^^^^^^^^^^^^
+
+By default, unauthenticated users are redirected to the ``login_url``. 
+You can override this to return JSON or custom HTML.
+
+.. code-block:: python
+   from dyne.ext.auth import AuthFailureReason
+
+    @auth.on_failure
+    async def custom_auth_failure(req, resp, reason):
+
+        if reason == AuthFailureReason.UNAUTHENTICATED:
+            resp.status_code = HTTPStatus.UNAUTHORIZED
+            resp.media = {"error": "Authentication required", "code": "AUTH_REQUIRED"}
+
+        if reason == AuthFailureReason.UNAUTHORIZED:
+            resp.status_code = HTTPStatus.FORBIDDEN
+            resp.media = {
+                "error": "Insufficient permissions",
+                "required_roles": "admin",
+            }
+
+            resp.status_code = HTTPStatus.FORBIDDEN
+            resp.text = "<h1>403 - Forbidden</h1><p>You do not have permission to view this page.</p>"
+
+        # Or fallback to default implementation
+        # await auth.default_failure(req, resp, reason)
+
+Failure Reasons
+^^^^^^^^^^^^^^^
+
+- ``AuthFailureReason.UNAUTHENTICATED``
+- ``AuthFailureReason.UNAUTHORIZED``
+
+Remember-Me Cookies
+^^^^^^^^^^^^^^^^^^^
+
+When enabled, remember-me cookies:
+
+- Are signed
+- Have configurable expiration
+- Automatically restore the session on next request
+
+
+Middleware
+^^^^^^^^^^
+
+``LoginMiddleware`` loads the current user for every HTTP request
+and stores it in ``req.state.user``.
 
 
 OpenAPI Documentation
@@ -2219,8 +2436,7 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
     import dyne
     from dyne.ext.openapi import OpenAPI
     from marshmallow import Schema, fields
-    from dyne.ext.auth import authenticate
-    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.auth import authenticate, BasicAuth
     from dyne.ext.io.marshmallow import input, output, expect
     from dyne.ext.io.marshmallow.fields import FileField
     from dyne.ext.db.alchemical import Alchemical, CRUDMixin, Model

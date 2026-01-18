@@ -26,8 +26,7 @@ A light weight Python async framework with batteries included.
 .. code:: python
 
     import dyne
-    from dyne.ext.auth import authenticate
-    from dyne.ext.auth.backends import BasicAuth
+    from dyne.ext.auth import authenticate, BasicAuth
     from dyne.ext.io.pydantic import input, output, expect
     from dyne.ext.openapi import OpenAPI
 
