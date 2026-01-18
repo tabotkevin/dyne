@@ -6,7 +6,7 @@ from typing import get_origin
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
-from dyne.ext.auth.backends import BasicAuth, DigestAuth, TokenAuth
+from dyne.ext.auth import BasicAuth, DigestAuth, TokenAuth
 from dyne.templates import Templates
 
 _THEMES = ["elements", "rapidoc", "redoc", "swaggerui"]

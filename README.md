@@ -10,7 +10,7 @@
 ```python
 
 import dyne
-from dyne.ext.auth import authenticate
+from dyne.ext.auth import authenticate, BasicAuth
 from dyne.ext.io.pydantic import input, output, expect
 from dyne.ext.openapi import OpenAPI
 

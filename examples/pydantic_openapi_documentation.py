@@ -4,8 +4,7 @@ from sqlalchemy import Column, Float, Integer, String
 
 import dyne
 from dyne.exceptions import abort
-from dyne.ext.auth import authenticate
-from dyne.ext.auth.backends import BasicAuth
+from dyne.ext.auth import BasicAuth, authenticate
 from dyne.ext.db.alchemical import Alchemical, Model
 from dyne.ext.io.pydantic import expect, input, output, webhook
 from dyne.ext.io.pydantic.fields import FileField
