@@ -86,7 +86,11 @@ class BookSchema(Schema):
 class BookCreateSchema(Schema):
     price = fields.Float()
     title = fields.Str()
-    image = FileField(allowed_extensions=["png", "jpg"], max_size=5 * 1024 * 1024)
+    image = FileField(
+        allowed_extensions=["png", "jpg"],
+        max_size=5 * 1024 * 1024,
+        sanitize_filename=True,
+    )
 
 
 class PriceUpdateSchema(Schema):

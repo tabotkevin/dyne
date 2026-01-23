@@ -89,6 +89,7 @@ class BookSchema(BaseModel):
 class Image(FileField):
     max_size = 5 * 1024 * 1024
     allowed_extensions = {"jpg", "jpeg", "png"}
+    sanitize_filename = True
 
 
 class BookCreateSchema(BaseModel):

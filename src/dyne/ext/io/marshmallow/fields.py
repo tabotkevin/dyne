@@ -3,6 +3,8 @@ from typing import Iterable
 
 from starlette.datastructures import Headers, UploadFile
 
+from dyne.ext.io.validators.file import validate_filename as _validate_filename
+
 try:
     from marshmallow import ValidationError
     from marshmallow.fields import Field
@@ -17,13 +19,14 @@ from ..base import File
 
 
 class FileField(Field):
-    file_validators = ["validate_size", "validate_extension"]
+    file_validators = ["validate_filename", "validate_size", "validate_extension"]
 
     def __init__(
         self,
         *,
         max_size: int | None = None,
         allowed_extensions: Iterable[str] | None = None,
+        sanitize_filename=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -33,7 +36,14 @@ class FileField(Field):
             if allowed_extensions
             else None
         )
+        self.sanitize_filename = sanitize_filename
         self.active_file_validators = list(self.file_validators)
+
+    def validate_filename(self, file: File):
+        try:
+            _validate_filename(file, sanitize=self.sanitize_filename)
+        except ValueError as exc:
+            raise ValidationError(str(exc))
 
     def validate_size(self, file: File):
         if self.max_size is not None and file.size > self.max_size:
