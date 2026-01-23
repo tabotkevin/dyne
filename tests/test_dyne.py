@@ -42,7 +42,7 @@ def test_websocket_route_repr():
 
     route = WebSocketRoute("/", chat_endpoint)
 
-    assert route.__repr__() == f"<Route '/'={chat_endpoint!r}>"
+    assert route.__repr__() == f"<WebSocketRoute '/'={chat_endpoint!r}>"
 
     assert route.endpoint_name == chat_endpoint.__name__
     assert route.description == chat_endpoint.__doc__

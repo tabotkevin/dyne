@@ -168,7 +168,7 @@ class WebSocketRoute(BaseRoute):
         self.path_re, self.param_convertors = compile_path(route)
 
     def __repr__(self):
-        return f"<Route {self.route!r}={self.endpoint!r}>"
+        return f"<WebSocketRoute {self.route!r}={self.endpoint!r}>"
 
     def url(self, **params):
         return self.route.format(**params)
@@ -316,11 +316,38 @@ class Router:
         abort(HTTPStatus.NOT_FOUND)
 
     def _resolve_route(self, scope):
+        path_match_fallback = None
+
+        is_http = scope["type"] == "http"
+        is_ws = scope["type"] == "websocket"
+
         for route in self.routes:
             matches, child_scope = route.matches(scope)
+
             if matches:
-                scope.update(child_scope)
-                return route
+                if is_ws:
+                    scope.update(child_scope)
+                    return route
+
+                if is_http:
+
+                    # perfect match
+                    methods = getattr(route, "methods", [])
+                    if scope.get("method") in methods:
+                        scope.update(child_scope)
+                        return route
+
+                    # path matches but method doesn't, save it as a fallback
+                    if path_match_fallback is None:
+                        path_match_fallback = (route, child_scope)
+
+        # return the fallback which will trigger a 405 error.
+        if path_match_fallback:
+            route, child_scope = path_match_fallback
+            scope.update(child_scope)
+            return route
+
+        # 404 error
         return None
 
     async def lifespan(self, scope, receive, send):
