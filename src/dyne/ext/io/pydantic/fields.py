@@ -3,6 +3,8 @@ from typing import Any, ClassVar, Iterable
 
 from starlette.datastructures import Headers, UploadFile
 
+from dyne.ext.io.validators.file import validate_filename
+
 try:
     from pydantic import GetCoreSchemaHandler
     from pydantic_core import core_schema
@@ -19,8 +21,13 @@ from ..base import File
 class FileField:
     max_size: ClassVar[int | None] = None
     allowed_extensions: ClassVar[Iterable[str] | None] = None
+    sanitize_filename: ClassVar[bool] = False
 
-    file_validators = ["validate_size", "validate_extension"]
+    file_validators = ["validate_filename", "validate_size", "validate_extension"]
+
+    @classmethod
+    def validate_filename(cls, file: File):
+        validate_filename(file, sanitize=cls.sanitize_filename)
 
     @classmethod
     def validate_size(cls, file: File):

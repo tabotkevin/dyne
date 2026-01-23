@@ -236,12 +236,13 @@ Dyne simplifies file handling by offering two primary approaches: **Schema-based
 1. Schema-Based Uploads
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Using the ``@input`` decorator with a schema is the recommended way to handle uploads. This allows you to validate file metadata, size, and extensions before your code ever runs.
+Using the ``@input`` decorator with a schema is the recommended way to handle uploads. This allows you to validate file metadata, size, extensions, and filenames before your code ever runs.
 
 A. Marshmallow Upload
 ^^^^^^^^^^^^^^^^^^^^^
 
-Marshmallow integration uses the ``FileField`` to define constraints like allowed extensions and maximum file size.
+Marshmallow integration uses the ``FileField`` to define constraints like allowed extensions, maximum file size, and optional validation.
+
 
 .. code-block:: python
 
@@ -254,6 +255,7 @@ Marshmallow integration uses the ``FileField`` to define constraints like allowe
         image = FileField(
             allowed_extensions=["png", "jpg", "jpeg"], 
             max_size=5 * 1024 * 1024  # 5MB
+            sanitize_filename=False     # optional: auto-fix unsafe filenames if True
         )
 
     @app.route("/upload", methods=["POST"])
@@ -264,10 +266,14 @@ Marshmallow integration uses the ``FileField`` to define constraints like allowe
         
         resp.media = {"success": True}
 
+.. note::
+    By default, filename validation is enabled. If ``sanitize_filename=False`` (default), unsafe filenames will raise a ``ValidationError``.
+    If ``sanitize_filename=True``, unsafe filenames will be automatically normalized to safe ASCII-equivalent names.
+
 B. Pydantic Upload
 ^^^^^^^^^^^^^^^^^^
 
-Pydantic integration allows you to create reusable file types by subclassing ``FileField``. 
+Pydantic integration allows you to create reusable file types by subclassing ``FileField``. You can also leverage **filename validation** with the optional ``sanitize_filename`` argument.
 
 .. important::
     To support custom file objects in Pydantic V2, your schema must include ``arbitrary_types_allowed=True`` within the ``model_config``.
@@ -281,6 +287,7 @@ Pydantic integration allows you to create reusable file types by subclassing ``F
     class Image(FileField):
         max_size = 5 * 1024 * 1024
         allowed_extensions = {"jpg", "jpeg", "png"}
+        sanitize_filename = True  # optional flag for auto-normalizing filenames
 
     class UploadSchema(BaseModel):
         description: str
@@ -303,10 +310,11 @@ Pydantic integration allows you to create reusable file types by subclassing ``F
 Creating Custom Validators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``FileField`` system is designed to be extensible. By default, both Pydantic and Marshmallow versions come pre-configured with two core validators:
+The ``FileField`` system is designed to be extensible. By default, both Pydantic and Marshmallow versions come pre-configured with three core validators:
 
 * ``validate_size``: Enforces the `max_size` constraint.
 * ``validate_extension``: Enforces the `allowed_extensions` constraint.
+* ``validate_filename``: Enforces safe filenames according to Dyne's rules. Unsafe filenames raise an error unless ``sanitize_filename=True`` is set.
 
 Every validator in the registry—whether default or custom—receives a `File` object (imported from `from dyne.ext.io import File`) as its primary argument.
 
@@ -324,6 +332,7 @@ In Pydantic, you extend the validation logic by creating a subclass and updating
     class ImageField(FileField):
         max_size = 2 * 1024 * 1024
         allowed_extensions = {"jpg", "jpeg", "png"}
+        sanitize_filename = False  # optional: auto-fix unsafe filenames
         
         # Append the new validator method name to the registry
         file_validators = FileField.file_validators + ["validate_is_image"]
@@ -371,6 +380,7 @@ This approach is ideal for adding validators dynamically during initialization. 
         tax_report = SecureFileField(
             max_size=2 * 1024 * 1024, 
             allowed_extensions=["pdf"],
+            sanitize_filename=True,  # optional: auto-fix unsafe filenames
             required=True
         )
 
@@ -387,6 +397,11 @@ For a simpler, more declarative approach, you can extend the `file_validators` c
         def validate_virus_scan(self, file: File):
             if "virus" in file.filename:
                 raise ValidationError("Malicious file detected")
+
+.. note::
+  **Filename Validation**
+
+  By default, Dyne validates filenames for safety. Use the ``sanitize_filename`` argument to automatically convert unsafe filenames to safe ASCII equivalents. Setting ``sanitize_filename=False`` (default) will reject unsafe filenames during validation.
 
 .. note::
   **File Persistence Options**
