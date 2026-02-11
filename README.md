@@ -129,7 +129,6 @@ To install all available features, including:
 - SQLAlchemy (Alchemical)
 - Both serialization engines
 - OpenAPI support
-- HTTP client helpers
 
 ```bash
 pip install "dyne[full]"

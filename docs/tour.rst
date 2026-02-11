@@ -88,7 +88,7 @@ Integrate a native GraphQL interface and the GraphiQL IDE:
 3. Full Suite
 """""""""""""
 
-For a comprehensive development environment including all serialization engines, GraphQL support, Flask adapters, and testing utilities:
+To install all available features, including: Both GraphQL engines, SQLAlchemy (Alchemical), Both serialization engines and OpenAPI support. 
 
 .. code-block:: bash
 
