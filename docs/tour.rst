@@ -37,6 +37,15 @@ To install the minimal ASGI core:
 
   pip install dyne
 
+Full Installation
+^^^^^^^^^^^^^^^^^
+
+To install all available features:
+
+.. code-block:: bash
+
+  pip install "dyne[full]"
+
 Feature Bundles
 ^^^^^^^^^^^^^^^
 
