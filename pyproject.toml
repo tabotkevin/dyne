@@ -18,6 +18,8 @@ dependencies = [
   "jinja2>=3.1.3",
   "pyyaml>=6.0.1",
   # HTTP utilities
+  "requests>=2.31.0",
+  "requests-toolbelt>=1.0.0",
   "rfc3986>=2.0.0",
   "python-multipart>=0.0.9",
   # Static files & security
@@ -72,14 +74,11 @@ marshmallow = ["marshmallow>=3.21.1"]
 
 openapi = ["apispec>=6.9.0"]
 
-# HTTP client helpers
-http = ["requests>=2.31.0", "requests-toolbelt>=1.0.0"]
-
 # OpenAPI with Pydantic
-openapi_pydantic = ["dyne[pydantic,openapi,http]"]
+openapi_pydantic = ["dyne[pydantic,openapi]"]
 
 # OpenAPI with Marshmallow
-openapi_marshmallow = ["dyne[marshmallow,openapi,http]"]
+openapi_marshmallow = ["dyne[marshmallow,openapi]"]
 
 # GraphQL with Strawberry
 graphql_strawberry = ["dyne[graphql,strawberry]"]
@@ -91,7 +90,7 @@ graphql_graphene = ["dyne[graphql,graphene]"]
 sqlalchemy = ["alchemical>=1.0.2", "aiosqlite>=0.22.1", "greenlet>=3.3.0"]
 
 full = [
-  "dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,http, sqlalchemy]",
+  "dyne[graphql,strawberry,graphene,pydantic,marshmallow,openapi,sqlalchemy]",
 ]
 
 
