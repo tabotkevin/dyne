@@ -67,6 +67,14 @@ To install the minimal ASGI core:
 pip install dyne
 ```
 
+### Full Installation
+
+To install all available features:
+
+```bash
+pip install "dyne[full]"
+```
+
 ## Installing Specific Feature Sets
 
 Choose the bundle that fits your technology stack. Note that for most shells (like Zsh on macOS), you should wrap the package name in quotes to handle the brackets correctly.
