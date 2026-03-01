@@ -26,7 +26,6 @@ basic_auth = BasicAuth()
 @input(BookCreateSchema, location="form")
 @output(BookSchema, status_code=201)
 @expect({401: "Unauthorized", 400: "Invalid file format"})
-@db.transaction
 async def create_book(req, resp, *, data):
     """
     Create a new Book
@@ -35,10 +34,11 @@ async def create_book(req, resp, *, data):
     """
 
     image = data.pop("image")
-    await image.asave(f"uploads/{image.filename}") # image is already validated for extension and size.
+    await image.asave(f"uploads/{image.filename}") # image is already validated for extension, size and filename.
 
-
+    session = await req.db
     book = await Book.create(**data, cover=image.filename)
+    await session.commit()
 
     resp.obj = book
 

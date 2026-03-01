@@ -10,7 +10,7 @@ authors = [{ name = "Tabot Kevin", email = "tabot.kevin@gmail.com" }]
 
 dependencies = [
   # Core ASGI / server
-  "starlette>=0.37.2",
+  "starlette>=0.37.2,<=0.52.1",
   "uvicorn[standard]>=0.29.0",
   # Async file handling
   "aiofiles>=23.2.1",
@@ -26,8 +26,8 @@ dependencies = [
   "whitenoise>=6.6.0",
   "itsdangerous>=2.1.2",
   "chardet>=5.2.0",
-  "docopt>=0.6.2",
   "httpx>=0.28.1",
+  "click>=8.3.1",
 ]
 
 classifiers = [
@@ -106,6 +106,8 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/dyne"]
 
+[project.scripts]
+dyne = "dyne.cli:cli"
 
 # Rye configuration
 [tool.rye]

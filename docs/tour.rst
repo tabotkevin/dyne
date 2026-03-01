@@ -1189,8 +1189,10 @@ Create a record:
 
   @app.route("/users", methods=["POST"])
   async def create_user(req, resp):
-      await req.db
+      session = await req.db
       user = await User.create(name="Dyne User")
+      await session.commit()
+
       resp.media = {"id": user.id}
 
 Update a record:
@@ -1780,7 +1782,6 @@ Use this form when you want **full control** over both the response schema and i
     })
     async def get_data(req, resp):
         pass
-
 
 
 Webhooks
@@ -2419,7 +2420,7 @@ To provide a title and description for your API, assign a docstring or a configu
 
     description = """ 
     User Management API
-    -------------------
+    
     This API allows for comprehensive management of users and books.
 
     **Base URL:** `https://api.example.com/v1`
@@ -2487,7 +2488,7 @@ This example demonstrates how the Marshmallow strategy captures a complex schema
 
     description = """ 
     User Management API
-    -------------------
+    
     This API allows for comprehensive management of users and books.
 
     **Base URL:** `https://api.example.com/v1`
@@ -2746,6 +2747,293 @@ It is important to distinguish between ``req.app.state`` and ``req.state``.
    If you try to access a state attribute that has not been set, it will raise 
    an ``AttributeError``. Use ``getattr(req.app.state, "key", default)`` if 
    you are unsure if a value exists.
+
+
+
+Dyne CLI
+--------
+
+The Dyne CLI provides a simple interface for running Dyne applications
+using Uvicorn as the ASGI server.
+
+It supports application discovery, debug mode, automatic reload,
+and environment-based configuration.
+
+Installation
+^^^^^^^^^^^^
+
+The CLI is installed automatically when installing Dyne:
+
+.. code-block:: bash
+
+    pip install dyne
+
+Usage
+^^^^^
+
+Basic usage:
+
+.. code-block:: bash
+
+    dyne run
+
+Specify an application explicitly:
+
+.. code-block:: bash
+
+    dyne --app myapp:app run
+
+If ``:app`` is omitted, Dyne automatically appends it:
+
+.. code-block:: bash
+
+    dyne --app myapp run
+
+This resolves internally to:
+
+.. code-block:: text
+
+    myapp:app
+
+Command Structure
+^^^^^^^^^^^^^^^^^
+
+The CLI is built using Click and supports global options followed by commands:
+
+.. code-block:: text
+
+    dyne [OPTIONS] COMMAND
+
+Available Commands
+^^^^^^^^^^^^^^^^^^
+
+run
+"""
+
+Runs the Dyne application using Uvicorn.
+
+.. code-block:: bash
+
+    dyne run
+
+Global Options
+^^^^^^^^^^^^^^
+
+--app, -a
+"""""""""
+
+Specify the Dyne application import path.
+
+- Format: ``module:variable``
+- Example: ``myproject.main:app``
+- Defaults to the ``DYNE_APP`` environment variable.
+- If not provided, defaults to ``app:app``.
+
+Example:
+
+.. code-block:: bash
+
+    dyne --app myproject.main:app run
+
+--debug
+"""""""
+
+Enable debug mode.
+
+When enabled:
+
+- Log level is set to ``debug``
+- Auto-reload is enabled (unless explicitly overridden)
+- ``DEBUG=true`` is added to the environment
+
+Example:
+
+.. code-block:: bash
+
+    dyne --debug run
+
+--host
+""""""
+
+Interface to bind the server to.
+
+Default:
+
+.. code-block:: text
+
+    127.0.0.1
+
+Example:
+
+.. code-block:: bash
+
+    dyne --host 0.0.0.0 run
+
+--port
+""""""
+
+Port to bind the server to.
+
+Default:
+
+.. code-block:: text
+
+    8000
+
+Example:
+
+.. code-block:: bash
+
+    dyne --port 9000 run
+
+--reload / --no-reload
+""""""""""""""""""""""
+
+Force enable or disable auto-reload.
+
+If not explicitly set:
+
+- Reload defaults to the value of ``--debug``.
+
+Examples:
+
+.. code-block:: bash
+
+    dyne --reload run
+
+    dyne --no-reload run
+
+--version
+"""""""""
+
+Display the installed Dyne version.
+
+.. code-block:: bash
+
+    dyne --version
+
+Environment Variables
+^^^^^^^^^^^^^^^^^^^^^
+
+DYNE_APP
+""""""""
+
+Defines the default application import path.
+
+Example:
+
+.. code-block:: bash
+
+    export DYNE_APP=myproject.main:app
+    dyne run
+
+DEBUG
+"""""
+
+Automatically set to ``true`` when ``--debug`` is enabled.
+
+Implementation Notes
+^^^^^^^^^^^^^^^^^^^^
+
+- The current working directory is automatically added to ``sys.path``
+  to ensure local imports resolve correctly.
+- Uvicorn is used as the ASGI server.
+- Log level automatically switches between ``info`` and ``debug``.
+
+Examples
+^^^^^^^^
+
+Run default app:
+
+.. code-block:: bash
+
+    dyne run
+
+Run with debug and reload:
+
+.. code-block:: bash
+
+    dyne --debug run
+
+Run custom app on all interfaces:
+
+.. code-block:: bash
+
+    dyne --app main:app --host 0.0.0.0 --port 8080 run
+
+
+Extending the Dyne CLI
+----------------------
+
+Dyne's CLI is fully extensible. Third-party packages, plugins, or
+internal tools can register new commands by importing the ``cli``
+group and attaching commands to it.
+
+This allows developers to "hook" into Dyne’s CLI without modifying
+Dyne’s core source code.
+
+Basic Example
+^^^^^^^^^^^^^
+
+A plugin can register a new command like this:
+
+.. code-block:: python
+
+    from dyne.cli import cli
+
+    @cli.command()
+    def custom_task():
+        """A task added by a plugin."""
+        print("Doing something cool!")
+
+Once this module is imported, the new command becomes available:
+
+.. code-block:: bash
+
+    dyne custom-task
+
+
+Plugin Design Pattern
+^^^^^^^^^^^^^^^^^^^^^
+
+A common structure for CLI plugins:
+
+.. code-block:: text
+
+    myplugin/
+        __init__.py
+        cli.py
+
+Inside ``cli.py``:
+
+.. code-block:: python
+
+    from dyne.cli import cli
+
+    @cli.command()
+    def seed_data():
+        """Seed the database."""
+        ...
+
+Then ensure the plugin module is imported during application startup.
+
+Automatic CLI Plugin Loading
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For larger ecosystems, plugins can be automatically discovered
+using Python entry points. This enables zero-configuration CLI
+extensions.
+
+Example ``pyproject.toml`` entry point:
+
+.. code-block:: toml
+
+    [project.entry-points."dyne.cli"]
+    myplugin = "myplugin.cli"
+
+Dyne can then iterate through registered entry points and import them
+at startup.
+
 
 
 Using Requests Test Client

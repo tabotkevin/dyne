@@ -79,7 +79,7 @@ class App:
         self.hsts_enabled = enable_hsts
         self.cors = cors
         self.cors_params = cors_params
-        self.debug = debug
+        self.debug = self.config.get("DEBUG", default=debug)
 
         if not allowed_hosts:
             allowed_hosts = ["*"]
@@ -370,7 +370,7 @@ class App:
         if address is None:
             address = "127.0.0.1"
         if port is None:
-            port = 5042
+            port = 8000
 
         def spawn():
             uvicorn.run(self, host=address, port=port, **options)
