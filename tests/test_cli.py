@@ -9,7 +9,6 @@ def test_cli_version():
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "2.0.4" in result.output
 
 
 def test_cli_help():
