@@ -4,7 +4,7 @@ import sys
 import click
 import uvicorn
 
-__version__ = "2.0.4"
+__version__ = "2.0.5"
 
 
 def parse_app_import(app_path: str | None) -> str:
